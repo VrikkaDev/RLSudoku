@@ -1,0 +1,22 @@
+cmake_minimum_required(VERSION 3.22)
+project(rlsudoku)
+
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_CXX_STANDARD 17)
+
+
+file(GLOB_RECURSE src_files
+        "src/*.h"
+        "src/*.cpp")
+
+
+add_subdirectory("vendor/raylib")
+
+
+add_executable(rlsudoku ${src_files})
+
+
+target_precompile_headers(rlsudoku PRIVATE src/pch.cxx src/pch.hxx)
+target_link_libraries(rlsudoku PUBLIC raylib)
+target_include_directories(rlsudoku PUBLIC "vendor" PUBLIC "src")
+set_target_properties(rlsudoku PROPERTIES LINKER_LANGUAGE CXX)
