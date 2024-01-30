@@ -10,7 +10,7 @@ int main() {
     InitWindow(screenWidth, screenHeight, "Simple raylib sudoku");
     SetTargetFPS(60);
 
-    Fonts::roboto_black = LoadFontEx("../assets/fonts/Roboto-Black.ttf", 96, 0, 0);
+    Fonts::default_font = LoadFontEx("../assets/fonts/Roboto-Black.ttf", 96, 0, 0);
 
     // Run the game
     Sudoku::Run();

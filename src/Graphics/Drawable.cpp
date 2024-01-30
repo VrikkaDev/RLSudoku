@@ -7,11 +7,10 @@
 #include "DrawableStack.h"
 #include "Scenes/Scene.h"
 
-Drawable::Drawable() {
-    // Add this to drawableStack
-    /*if(GameData::currentScene){
-        GameData::currentScene->drawableStack->AddDrawable(this);
-    }else{
-        std::cout << "Tried to add drawable to empty scene" << std::endl;
-    }*/
+Drawable::Drawable() :
+OnClick([this](MouseEvent* event) {
+}),
+OnEvent([this](Event* event) {
+})
+{
 }

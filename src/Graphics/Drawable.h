@@ -15,13 +15,11 @@ public:
     //virtual ~Drawable() = default;
     virtual void Draw(){
     }
-    virtual void OnClick(MouseEvent* event){
-    }
-    virtual void OnEvent(Event* event){
-    }
+    std::function<void(MouseEvent* event)> OnClick;
+    std::function<void(Event* event)> OnEvent;
 
     void AddChild(){
-
+        // TODO children system.... maybe
     }
     void RemoveChild(){
 
@@ -42,6 +40,8 @@ public:
 
     std::shared_ptr<Drawable> parent{};
     std::vector<std::shared_ptr<Drawable>> children{};
+
+
 };
 
 #endif //RLSUDOKU_DRAWABLE_H
