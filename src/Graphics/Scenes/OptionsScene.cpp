@@ -13,10 +13,7 @@ OptionsScene::OptionsScene() : Scene(){
 }
 
 void OptionsScene::Setup() {
-    float bw = 250;
-    float bh = 50;
-    float bx = GetScreenWidth()/2 - bw/2;
-    float by = GetScreenHeight()/2 - bh/2 + 70;
+    float bw = 250, bh = 50, bx = GetScreenWidth()/2 - bw/2, by = GetScreenHeight()/2 - bh/2 + 70;
 
     auto bb = new GenericButton("Back", Rectangle{bx,by,bw,bh});
     bb->OnClick = [](MouseEvent* event) {

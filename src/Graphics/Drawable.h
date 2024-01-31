@@ -39,7 +39,7 @@ public:
 
     // TODO children system.... maybe
     Drawable* parent{};
-    std::vector<std::shared_ptr<Drawable>> children{};
+    std::vector<Drawable*> children{};
 
 
 };

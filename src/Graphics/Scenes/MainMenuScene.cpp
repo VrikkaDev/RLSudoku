@@ -7,6 +7,7 @@
 #include "GameData.h"
 #include "OptionsScene.h"
 #include "Graphics/Scenes/Drawables/GenericDropdown.h"
+#include "GameScene.h"
 
 MainMenuScene::MainMenuScene() : Scene() {
 }
@@ -33,14 +34,15 @@ void MainMenuScene::Setup() {
 
     // Difficulty dropdown
     float dw = 190, dh = 50, dx = GetScreenWidth()/2 - dw/2 + 260, dy = GetScreenHeight()/2 - dh/2 - 70;
-    auto db = new GenericDropdown({"Easy", "Medium","Hard"}, Rectangle{dx,dy,dw,dh});
+    auto db = new GenericDropdown({{"Easy", 10}, {"Medium", 40}, {"Hard", 70}, {"Very Hard", 90}}, Rectangle{dx,dy,dw,dh});
     drawableStack->AddDrawable(db);
 
     // Generate game button
     float gw = 250, gh = 50, gx = GetScreenWidth()/2 - gw/2, gy = GetScreenHeight()/2 - gh/2 - 70;
     auto gb = new GenericButton("Generate", Rectangle{gx,gy,gw,gh});
     gb->OnClick = [db](MouseEvent* event) {
-        std::cout<< db->selectedText << std::endl;
+        GameData::currentScene = std::make_unique<GameScene>(db->GetSelectedValue());
+        GameData::currentScene->Setup();
     };
     drawableStack->AddDrawable(gb);
 }

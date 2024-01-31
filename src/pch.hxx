@@ -17,7 +17,11 @@
 #include <future>
 #include <typeindex>
 
+#include <string.h>
+
 #include "raylib.h"
+#include "raymath.h"
+
 #include "Helpers/TextHelper.h"
 
 #endif //SDLSUDOKU_PCH_HXX

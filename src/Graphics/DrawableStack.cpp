@@ -48,6 +48,10 @@ void DrawableStack::OnUpdate() {
         }
 
         drawable->OnUpdate();
+
+        for (auto children : drawable->children){
+            children->OnUpdate();
+        }
     }
 }
 

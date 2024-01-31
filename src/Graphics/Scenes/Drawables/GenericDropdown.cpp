@@ -14,7 +14,7 @@ GenericDropdown::GenericDropdown() : Drawable(){
     y = GetScreenHeight()/2 - height/2;
 }
 
-GenericDropdown::GenericDropdown(std::vector<const char*> txts, Rectangle rec) : Drawable(){
+GenericDropdown::GenericDropdown(std::map<const char*, int> txts, Rectangle rec) : Drawable(){
     texts = txts;
     x = rec.x;
     y = rec.y;
@@ -31,7 +31,10 @@ void GenericDropdown::OnStart() {
         if(isOpened){
             for (int i = 1; i <= texts.size(); i++) {
                 auto r = Rectangle{(float)x, (float)y + height * i, (float)width, (float)height};
-                auto* gb = new GenericButton(texts[i-1], r);
+                // Get the correct text
+                auto it = texts.begin();
+                std::advance(it, i-1);
+                auto* gb = new GenericButton(it->first, r);
                 gb->parent = this;
                 gb->fontSize = fontSize;
                 gb->OnClick = [gb, i](MouseEvent* event){
@@ -97,9 +100,18 @@ void GenericDropdown::Draw() {
                      triangleColor);
     }
 
+    // Draw the top text
     if (texts.size() > selectedText){
-        DrawTextBC(texts[selectedText], x, y, fontSize, width, height, textColor);
+        auto it = texts.begin();
+        std::advance(it, selectedText);
+        DrawTextBC(it->first, x, y, fontSize, width, height, textColor);
     }
 
+}
+
+int GenericDropdown::GetSelectedValue() {
+    auto it = texts.begin();
+    std::advance(it, selectedText);
+    return it->second;
 }
 

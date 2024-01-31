@@ -12,7 +12,7 @@
 class GenericDropdown : public Drawable{
 public:
     GenericDropdown();
-    GenericDropdown(std::vector<const char*> txts, Rectangle rec);
+    GenericDropdown(std::map<const char*, int> txts, Rectangle rec);
     void OnStart() override;
     void Draw() override;
 
@@ -25,11 +25,11 @@ public:
     int fontSize = 40;
 
     bool isOpened = false;
-    int selectedText = 0;
-
     float triangleSize = 10;
 
-    std::vector<const char*> texts = {};
+    int GetSelectedValue();
+    int selectedText = 0;
+    std::map<const char*, int> texts = {};
     std::vector<GenericButton*> textButtons = {};
 };
 
