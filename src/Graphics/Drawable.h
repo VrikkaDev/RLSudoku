@@ -15,15 +15,13 @@ public:
     //virtual ~Drawable() = default;
     virtual void Draw(){
     }
+    virtual void OnUpdate(){
+    }
+    virtual void OnStart(){
+    }
     std::function<void(MouseEvent* event)> OnClick;
     std::function<void(Event* event)> OnEvent;
 
-    void AddChild(){
-        // TODO children system.... maybe
-    }
-    void RemoveChild(){
-
-    }
 
     [[nodiscard]] Rectangle GetRectangle() const{
         auto rec = Rectangle {};
@@ -38,7 +36,9 @@ public:
     int x = 0, y = 0;
     int width = 100, height = 100;
 
-    std::shared_ptr<Drawable> parent{};
+
+    // TODO children system.... maybe
+    Drawable* parent{};
     std::vector<std::shared_ptr<Drawable>> children{};
 
 

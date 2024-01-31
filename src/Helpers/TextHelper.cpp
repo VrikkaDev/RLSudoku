@@ -12,12 +12,12 @@ void DrawTextB(const char *text, int posX, int posY, int fontSize, Color color){
 
 void DrawTextBC(const char *text, int posX, int posY, int fontSize, int width, int height, Color color){
 
-    int textWidth = MeasureText(text, height);  // Measure the width based on the text height
-    int textHeight = height;  // Use the same height as the rectangle
+    // Measure the text size using the specified font and size
+    Vector2 textSize = MeasureTextEx(Fonts::default_font, text, fontSize, 1);
 
     // Calculate the position to center the text in the rectangle
-    int textX = posX + (width - textWidth) / 2;
-    int textY = posY + (height - textHeight) / 2;
+    int textX = posX + (width - textSize.x) / 2;
+    int textY = posY + (height - textSize.y) / 2;
 
     DrawTextEx(Fonts::default_font, text, (Vector2){static_cast<float>(textX), static_cast<float>(textY) }, fontSize, 1, color);
 }

@@ -18,19 +18,42 @@ void DrawableStack::Draw() {
 void DrawableStack::OnEvent(Event* event) {
     for (const auto& drawable : m_Drawables){
 
+        if (!drawable){
+            continue;
+        }
+
         drawable->OnEvent(event);
 
         // Handle sub-events
         if (auto* me = dynamic_cast<MouseEvent*>(event)){
-            if (CheckCollisionPointRec(me->MousePosition, drawable->GetRectangle())){
+            if (!CheckCollisionPointRec(me->MousePosition, drawable->GetRectangle())){
+                continue;
+            }
+
+            // EventType 2 is RELEASED
+            if (me->EventType == 2){
                 drawable->OnClick(me);
             }
         }
+
+
+    }
+}
+
+void DrawableStack::OnUpdate() {
+    for (const auto& drawable : m_Drawables) {
+
+        if (!drawable) {
+            continue;
+        }
+
+        drawable->OnUpdate();
     }
 }
 
 void DrawableStack::AddDrawable(Drawable* drawable) {
     m_Drawables.push_back(drawable);
+    drawable->OnStart();
 }
 
 void DrawableStack::RemoveDrawable(Drawable* drawable) {

@@ -15,6 +15,7 @@ public:
     DrawableStack() = default;
     void Draw();
     void OnEvent(Event* event);
+    void OnUpdate();
     void AddDrawable(Drawable* drawable);
     void RemoveDrawable(Drawable* drawable);
 private:

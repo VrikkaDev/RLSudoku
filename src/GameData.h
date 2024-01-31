@@ -11,6 +11,7 @@ class Scene;
 
 class GameData {
 public:
+    static bool isRunning;
     static std::unique_ptr<Scene> currentScene;
 };
 

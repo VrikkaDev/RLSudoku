@@ -15,7 +15,8 @@ public:
     void Draw() override;
 
     Color color = GRAY;
-    Color hoverColor = LIGHTGRAY;
+    Color hoverColor = DARKGRAY;
+    Color pressColor = LIGHTGRAY;
     Color textColor = WHITE;
 
     int fontSize = 50;
