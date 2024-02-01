@@ -15,6 +15,9 @@ public:
 
     void Setup() override;
 
+    sudoku::Board board = sudoku::Board();
+    sudoku::Solver solver = sudoku::Solver();
+
     // Difficulty 0-100
     int difficulty = 0;
 };

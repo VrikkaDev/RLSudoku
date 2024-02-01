@@ -4,7 +4,7 @@
 
 #include "GenericDropdown.h"
 #include "GameData.h"
-#include "Graphics/Scenes/Scene.h"
+#include "Scenes/Scene.h"
 
 GenericDropdown::GenericDropdown() : Drawable(){
     width = 300;

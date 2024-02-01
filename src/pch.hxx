@@ -22,6 +22,10 @@
 #include "raylib.h"
 #include "raymath.h"
 
+#include "libsudoku/src/board.h"
+#include "libsudoku/src/generator.h"
+#include "libsudoku/src/solver.h"
+
 #include "Helpers/TextHelper.h"
 
 #endif //SDLSUDOKU_PCH_HXX

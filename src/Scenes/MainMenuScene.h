@@ -6,7 +6,7 @@
 #define RLSUDOKU_MAINMENUSCENE_H
 
 
-#include "Graphics/Scenes/Scene.h"
+#include "Scene.h"
 
 class MainMenuScene : public Scene {
 public:

@@ -4,7 +4,7 @@
 
 #include "OptionsScene.h"
 #include "Event/MouseEvent.h"
-#include "Graphics/Scenes/Drawables/GenericButton.h"
+#include "Scenes/Drawables/GenericButton.h"
 #include "GameData.h"
 #include "MainMenuScene.h"
 

@@ -3,7 +3,7 @@
 //
 
 #include "GameData.h"
-#include "Graphics/Scenes/Scene.h"
+#include "Scenes/Scene.h"
 
 std::unique_ptr<Scene> GameData::currentScene = std::make_unique<Scene>();
 bool GameData::isRunning = true;

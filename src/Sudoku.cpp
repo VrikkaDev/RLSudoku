@@ -3,9 +3,10 @@
 //
 
 #include "Sudoku.h"
-#include "Graphics/Scenes/Scene.h"
+#include "Scenes/Scene.h"
 #include "Event/MouseEvent.h"
-#include "Graphics/Scenes/MainMenuScene.h"
+#include "Scenes/MainMenuScene.h"
+#include "Event/KeyboardEvent.h"
 
 void Sudoku::Run() {
 
@@ -17,6 +18,8 @@ void Sudoku::Run() {
     int prevBtnState = 0; // Previous mouse button state
     Vector2 mousePoint {0,0};
 
+    int keyboardKey = 0;
+
     // Main game loop
     while (!WindowShouldClose() && GameData::isRunning)// Detect window close button or ESC key
     {
@@ -27,6 +30,14 @@ void Sudoku::Run() {
         mousePoint = GetMousePosition();
 
         prevBtnState = btnState;
+
+        keyboardKey = GetKeyPressed();
+
+        if(keyboardKey != 0){
+            // Keyboard event. needs work, at some point :)
+            auto* keybEvent = new KeyboardEvent(1, keyboardKey);
+            GameData::currentScene->drawableStack->OnEvent(keybEvent);
+        }
 
         // Check button state
         if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) btnState = 1;

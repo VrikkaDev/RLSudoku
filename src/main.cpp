@@ -1,6 +1,7 @@
 #include <iostream>
 #include "pch.hxx"
 #include "Sudoku.h"
+#include "Helpers/SudokuHelper.h"
 
 int main() {
     const int screenWidth = 800;

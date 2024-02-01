@@ -6,7 +6,7 @@
 #define RLSUDOKU_OPTIONSSCENE_H
 
 
-#include "Graphics/Scenes/Scene.h"
+#include "Scene.h"
 
 class OptionsScene : public Scene {
 public:
