@@ -18,8 +18,7 @@ void MainMenuScene::Setup() {
     float ow = 220, oh = 50, ox = GetScreenWidth()/2 - ow/2, oy = GetScreenHeight()/2 - oh/2;
     auto ob = new GenericButton("Options", Rectangle{ox,oy,ow,oh});
     ob->OnClick = [](MouseEvent* event) {
-        GameData::currentScene = std::make_unique<OptionsScene>();
-        GameData::currentScene->Setup();
+        GameData::SetScene(std::make_unique<OptionsScene>());
     };
     drawableStack->AddDrawable(ob);
 
@@ -41,8 +40,7 @@ void MainMenuScene::Setup() {
     float gw = 250, gh = 50, gx = GetScreenWidth()/2 - gw/2, gy = GetScreenHeight()/2 - gh/2 - 70;
     auto gb = new GenericButton("Generate", Rectangle{gx,gy,gw,gh});
     gb->OnClick = [db](MouseEvent* event) {
-        GameData::currentScene = std::make_unique<GameScene>(db->GetSelectedValue());
-        GameData::currentScene->Setup();
+        GameData::SetScene(std::make_unique<GameScene>(db->GetSelectedValue()));
     };
     drawableStack->AddDrawable(gb);
 }

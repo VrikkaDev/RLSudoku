@@ -26,6 +26,6 @@ void GenericButton::Draw() {
     bool isPressed = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
 
     DrawRectangle(x, y, width, height, isHovering ? isPressed ? pressColor : hoverColor : color);
-    DrawTextBC(text, x, y, fontSize, width, height, textColor);
+    DrawTextBC(text.c_str(), x, y, fontSize, width, height, textColor);
 }
 

@@ -21,7 +21,7 @@ public:
 
     int fontSize = 50;
 
-    const char* text = "Button";
+    std::string text = "Button";
 };
 
 

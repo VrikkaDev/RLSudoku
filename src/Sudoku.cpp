@@ -6,13 +6,13 @@
 #include "Scenes/Scene.h"
 #include "Event/MouseEvent.h"
 #include "Scenes/MainMenuScene.h"
+#include "Storage/StorageManager.h"
 #include "Event/KeyboardEvent.h"
 
 void Sudoku::Run() {
 
-    GameData::currentScene.reset();
-    GameData::currentScene = std::make_unique<MainMenuScene>();
-    GameData::currentScene->Setup();
+    GameData::SetScene(std::make_unique<MainMenuScene>());
+    GameData::HandleSceneChange();
 
     int btnState = 0; // Button state: 0-NORMAL, 1-LEFT_CLICK, 2-RIGHT_CLICK
     int prevBtnState = 0; // Previous mouse button state
@@ -24,7 +24,7 @@ void Sudoku::Run() {
     while (!WindowShouldClose() && GameData::isRunning)// Detect window close button or ESC key
     {
         BeginDrawing();
-        ClearBackground(RAYWHITE);
+        ClearBackground(CLITERAL(Color){ 220, 220, 220, 255 } );
         EndDrawing();
 
         mousePoint = GetMousePosition();
@@ -61,5 +61,11 @@ void Sudoku::Run() {
         }
 
         GameData::currentScene->drawableStack->Draw();
+
+        GameData::HandleSceneChange();
     }
+
+    // Save data
+    GameData::storageManager->Save();
+
 }

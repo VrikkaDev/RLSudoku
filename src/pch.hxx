@@ -26,6 +26,8 @@
 #include "libsudoku/src/generator.h"
 #include "libsudoku/src/solver.h"
 
+#include "json/single_include/nlohmann/json.hpp"
+
 #include "Helpers/TextHelper.h"
 
 #endif //SDLSUDOKU_PCH_HXX

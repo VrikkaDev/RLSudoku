@@ -36,8 +36,7 @@ void GameScene::Setup() {
 
     auto bb = new GenericButton("Back", Rectangle{bx,by,bw,bh});
     bb->OnClick = [](MouseEvent* event) {
-        GameData::currentScene = std::make_unique<MainMenuScene>();
-        GameData::currentScene->Setup();
+        GameData::SetScene(std::make_unique<MainMenuScene>());
     };
     drawableStack->AddDrawable(bb);
 
