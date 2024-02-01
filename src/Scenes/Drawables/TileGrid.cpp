@@ -6,6 +6,8 @@
 #include "TileButton.h"
 #include "Event/KeyboardEvent.h"
 #include "Helpers/KeyHelper.h"
+#include "GameData.h"
+#include "Storage/StorageManager.h"
 
 TileGrid::TileGrid() : Drawable(){
 }
@@ -41,6 +43,8 @@ void TileGrid::OnStart() {
             if(ke->EventType != 1){
                 return;
             }
+
+
             int num = KeyHelper::GetNumberFromKeyNum(ke->Key);
 
             auto* dr = this->children[this->selectedTile];
@@ -49,6 +53,9 @@ void TileGrid::OnStart() {
             }
         }
     };
+
+    solvedBoard = new sudoku::Board();
+    solver->solve(*board, *solvedBoard);
 
     // Create tiles
     int t = 0;
@@ -64,9 +71,10 @@ void TileGrid::OnStart() {
 
             auto val = board->valueAt(j, i);
             std::string vstr = std::to_string(val);
+            // If its 0 make it be nothing
             if(vstr == "0") vstr = "";
 
-            auto* tb = new TileButton(t, vstr.c_str(), 0, rec);
+            auto* tb = new TileButton(t, vstr.c_str(), (int)solvedBoard->valueAt(j,i), rec);
             tb->fontSize=ow/1.5;
             tb->OnStart();
             tb->parent = this;
@@ -90,10 +98,36 @@ void TileGrid::SelectTile(int tilenumber) {
 
     selectedTile = tilenumber;
 
+    nlohmann::json j = GameData::storageManager->GetData("options_toggle_showgridlines");
+    nlohmann::json j2 = GameData::storageManager->GetData("options_toggle_hlsamenumbers");
+
+    // Determine the row and column of the tile
+    int targetRow = tilenumber / 9;
+    int targetColumn = tilenumber % 9;
+
+    auto* cb = dynamic_cast<TileButton*>(children[tilenumber]);
+
+
     for (auto* d : children){
         if (auto* tb = dynamic_cast<TileButton*>(d)){
+            tb->inGridLine = false;
             if (tb->tileNumber == tilenumber){
                 continue;
+            }
+            // If showgridlines is enabled
+            if(j.contains("value") && j["value"]){
+                int currentRow = tb->tileNumber / 9;
+                int currentColumn = tb->tileNumber % 9;
+
+                if(currentRow == targetRow || currentColumn == targetColumn){
+                    tb->inGridLine = true;
+                }
+            }
+
+            if(j2.contains("value") && j2["value"]){
+                if(tb->text == cb->text){
+                    tb->inGridLine = true;
+                }
             }
 
             tb->DeSelect();

@@ -8,6 +8,8 @@
 
 #include "Scene.h"
 
+class TileGrid;
+
 class GameScene : public Scene{
 public:
     GameScene();
@@ -18,7 +20,9 @@ public:
     sudoku::Board board = sudoku::Board();
     sudoku::Solver solver = sudoku::Solver();
 
-    // Difficulty 0-100
+    TileGrid* tileGrid;
+
+    // Difficulty 0-100 not in use currently
     int difficulty = 0;
 };
 

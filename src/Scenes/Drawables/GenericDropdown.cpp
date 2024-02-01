@@ -20,8 +20,6 @@ GenericDropdown::GenericDropdown(std::map<const char*, int> txts, Rectangle rec)
     y = rec.y;
     width = rec.width;
     height = rec.height;
-
-
 }
 
 void GenericDropdown::OnStart() {

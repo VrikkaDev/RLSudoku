@@ -21,6 +21,7 @@ public:
 
     sudoku::Solver* solver = nullptr;
     sudoku::Board* board = nullptr;
+    sudoku::Board* solvedBoard = nullptr;
 
     Color color = DARKGRAY;
 };

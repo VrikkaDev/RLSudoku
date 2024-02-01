@@ -26,6 +26,8 @@ void StorageManager::Save() {
     std::ofstream WFile(filename);
     WFile << root;
     WFile.close();
+
+    curr_json = root;
 }
 
 void StorageManager::Load() {
@@ -37,7 +39,17 @@ void StorageManager::Load() {
     }
     RFile.close();
 
+    curr_json = root;
+
+    // Load all saveables
     for (const std::unique_ptr<Saveable>& saveable : saveableStack.saveables){
         saveable->Load(root[saveable->save_token]);
     }
+}
+
+nlohmann::json StorageManager::GetData(const char* key) {
+    if(curr_json.contains(key)){
+        return curr_json[key];
+    }
+    return "";
 }

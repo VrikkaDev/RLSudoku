@@ -16,8 +16,8 @@ public:
     static std::unique_ptr<Scene> currentScene;
     static std::unique_ptr<StorageManager> storageManager;
 
+    // prob should use some sort of SceneManager instead of having these here
     static void SetScene(std::unique_ptr<Scene> scene);
-
     static void HandleSceneChange();
 
 private:

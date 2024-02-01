@@ -4,6 +4,8 @@
 
 #include "TileButton.h"
 #include "TileGrid.h"
+#include "GameData.h"
+#include "Storage/StorageManager.h"
 
 TileButton::TileButton() : Drawable() {
 
@@ -43,7 +45,8 @@ void TileButton::Draw() {
 
     // Draw outline
     DrawRectangle(x, y, width, height, selectedColor);
-    DrawRectangle(x+1, y+1, width-2, height-2, selected ? isPressed ? pressColor : selectedColor : color);
+    Color ccol = selected ? selectedColor : inGridLine ? gridlineColor : color;
+    DrawRectangle(x+1, y+1, width-2, height-2, ccol);
 
     if (selected && isHovering && text.empty()){
         int t = 1;
@@ -104,7 +107,13 @@ void TileButton::Draw() {
 
     // Draw big number if it exists
     if (!text.empty() && text != "-1"){
-        DrawTextBC(text.c_str(), x, y, fontSize*1.25, width, height, selected ? textColor : permanent ? textColor3 : textColor2);
+        Color color1 = showIsWrong ? wrongNumColor : selected ? textColor : permanent ? textColor3 : textColor2;
+        DrawTextBC(text.c_str(), x, y, fontSize*1.25, width, height, color1);
+    }
+    // Draw red ball if conflict
+    if(showConflicts){
+        float radius = 5;
+        DrawCircle(x+width-radius,y+height-radius,radius, wrongNumColor);
     }
 }
 
@@ -113,8 +122,103 @@ void TileButton::DeSelect() {
 }
 
 void TileButton::SetText(const std::string& str) {
-    if(permanent){
+    if (permanent) {
         return;
     }
+
+    nlohmann::json j = GameData::storageManager->GetData("options_toggle_autocheck");
+
+
+    if (j.contains("value") && j["value"]) {
+        int si = stoi(str);
+        if (si != correctNum) {
+            showIsWrong = true;
+            text = str;
+            return;
+        }
+
+    }
+
+    showIsWrong = false;
     text = str;
+    CheckForConflicts();
 }
+
+void TileButton::CheckForConflicts() {
+
+    nlohmann::json j2 = GameData::storageManager->GetData("options_toggle_hlconflicts");
+
+    if (j2.contains("value") && j2["value"]) {
+
+        int targetRow = tileNumber / 9;
+        int targetColumn = tileNumber % 9;
+
+        auto childs = parent->children;
+
+        // Function to check conflicts and add to the vector
+        auto checkAndAddConflict = [&](int index) {
+            if (auto* tb = dynamic_cast<TileButton*>(childs[index])) {
+                if(tb->tileNumber == tileNumber){
+                    return;
+                }
+                if (tb->text == text && !text.empty() && text != "-1") {
+                    addConflict(tb->tileNumber);
+                    tb->addConflict(tileNumber);
+                }else{
+                    tb->removeConflict(tileNumber);
+                    removeConflict(tb->tileNumber);
+                }
+            }
+        };
+
+        // Check conflicts in the same row
+        for (int i = targetRow * 9; i < (targetRow + 1) * 9; ++i) {
+            checkAndAddConflict(i);
+        }
+
+        // Check conflicts in the same column
+        for (int i = targetColumn; i < 81; i += 9) {
+            checkAndAddConflict(i);
+        }
+
+        // Check conflicts in the same 3x3 square
+        int squareStartRow = (targetRow / 3) * 3;
+        int squareStartColumn = (targetColumn / 3) * 3;
+        for (int row = squareStartRow; row < squareStartRow + 3; ++row) {
+            for (int col = squareStartColumn; col < squareStartColumn + 3; ++col) {
+                int index = row * 9 + col;
+                checkAndAddConflict(index);
+            }
+        }
+
+    }
+}
+
+void TileButton::removeConflict(int tile) {
+    auto it = std::find(conflicts.begin(), conflicts.end(), tile);
+    if (it != conflicts.end()) {
+        conflicts.erase(it);
+    }
+
+    nlohmann::json j2 = GameData::storageManager->GetData("options_toggle_hlconflicts");
+
+    if(conflicts.empty()){
+        showConflicts = false;
+    }else{
+        showConflicts = j2["value"];
+    }
+}
+
+void TileButton::addConflict(int tile) {
+
+    conflicts.push_back(tile);
+
+    nlohmann::json j2 = GameData::storageManager->GetData("options_toggle_hlconflicts");
+
+    if(conflicts.empty()){
+        showConflicts = false;
+    }else{
+        showConflicts = j2["value"];
+    }
+}
+
