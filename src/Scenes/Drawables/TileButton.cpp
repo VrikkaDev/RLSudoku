@@ -21,6 +21,7 @@ TileButton::TileButton(int tilenum, const char* txt, int correctNum, Rectangle r
     tileNumber = tilenum;
     this->correctNum = correctNum;
     text = txt;
+
     x = rec.x;
     y = rec.y;
     width = rec.width;
@@ -37,6 +38,16 @@ void TileButton::OnStart() {
             p->SelectTile(tileNumber);
         }
     };
+
+    try{
+        if(auto* tg = dynamic_cast<TileGrid*>(parent)){
+            auto s = std::string(text);
+            tg->SetTile(tileNumber, stoi(s));
+        }
+    }
+    catch(std::exception& e){
+    }
+
 }
 
 void TileButton::Draw() {
@@ -48,7 +59,7 @@ void TileButton::Draw() {
     Color ccol = selected ? selectedColor : inGridLine ? gridlineColor : color;
     DrawRectangle(x+1, y+1, width-2, height-2, ccol);
 
-    if (selected && isHovering && text.empty()){
+    if (selected && isHovering && (text.empty() || text == "-1") ){
         int t = 1;
         // Draw small numbers inside
         for (int i = 0; i < 3; i++){
@@ -86,30 +97,31 @@ void TileButton::Draw() {
                 t++;
             }
         }
-    }else{ // Else draw the notes
+    }
+    // Draw big number if it exists
+    if (!text.empty() && text != "-1"){
+        Color color1 = showIsWrong ? wrongNumColor : selected ? textColor : permanent ? textColor3 : textColor2;
+        DrawTextBC(text.c_str(), x, y, fontSize*1.25, width, height, color1);
+    }else { // Else draw the notes
         int t = 1;
         // Draw small numbers inside
-        for (int i = 0; i < 3; i++){
-            for (int j = 0; j < 3; j++){
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
                 auto it = std::find(notes.begin(), notes.end(), t);
-                if (it == notes.end()){
+                if (it == notes.end()) {
                     t++;
                     continue;
                 }
-                auto trec = Rectangle {(float)x + j * width/3, (float)y + i * height/3, (float)fontSize/2, (float)fontSize/2};
+                auto trec = Rectangle{(float) x + j * width / 3, (float) y + i * height / 3, (float) fontSize / 2,
+                                      (float) fontSize / 2};
                 std::string st = std::to_string(t);
                 DrawTextBC(st.c_str(), trec.x, trec.y,
-                           fontSize/2, fontSize/2, fontSize/2, selected ? textColor : textColor2);
+                           fontSize / 2, fontSize / 2, fontSize / 2, selected ? textColor : textColor2);
                 t++;
             }
         }
     }
 
-    // Draw big number if it exists
-    if (!text.empty() && text != "-1"){
-        Color color1 = showIsWrong ? wrongNumColor : selected ? textColor : permanent ? textColor3 : textColor2;
-        DrawTextBC(text.c_str(), x, y, fontSize*1.25, width, height, color1);
-    }
     // Draw red ball if conflict
     if(showConflicts){
         float radius = 5;
@@ -128,7 +140,13 @@ void TileButton::SetText(const std::string& str) {
 
     nlohmann::json j = GameData::storageManager->GetData("options_toggle_autocheck");
 
+    if(auto* tg = dynamic_cast<TileGrid*>(parent)){
+        tg->SetTile(tileNumber, stoi(str));
+        tg->CheckIfFinished();
+    }
 
+
+    // AutoCheck
     if (j.contains("value") && j["value"]) {
         int si = stoi(str);
         if (si != correctNum) {

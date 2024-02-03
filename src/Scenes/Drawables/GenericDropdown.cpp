@@ -102,7 +102,7 @@ void GenericDropdown::Draw() {
     if (texts.size() > selectedText){
         auto it = texts.begin();
         std::advance(it, selectedText);
-        DrawTextBC(it->first, x, y, fontSize, width, height, textColor);
+        DrawTextBCL(it->first, x+5, y, fontSize, height, textColor);
     }
 
 }

@@ -2,14 +2,14 @@
 // Created by VrikkaDev on 29.1.2024.
 //
 
-#include "Sudoku.h"
+#include "Game.h"
 #include "Scenes/Scene.h"
 #include "Event/MouseEvent.h"
 #include "Scenes/MainMenuScene.h"
 #include "Storage/StorageManager.h"
 #include "Event/KeyboardEvent.h"
 
-void Sudoku::Run() {
+void Game::Run() {
 
     GameData::SetScene(std::make_unique<MainMenuScene>());
     GameData::HandleSceneChange();
@@ -34,9 +34,8 @@ void Sudoku::Run() {
         keyboardKey = GetKeyPressed();
 
         if(keyboardKey != 0){
-            // Keyboard event. needs work, at some point :)
             auto* keybEvent = new KeyboardEvent(1, keyboardKey);
-            GameData::currentScene->drawableStack->OnEvent(keybEvent);
+            GameData::currentScene->eventDispatcher->AddEvent(keybEvent);
         }
 
         // Check button state
@@ -57,9 +56,12 @@ void Sudoku::Run() {
             }
 
             auto* event = new MouseEvent(eventType, btnState, mousePoint);
-            GameData::currentScene->drawableStack->OnEvent(event);
+            GameData::currentScene->eventDispatcher->AddEvent(event);
         }
 
+        // Handle update
+        GameData::currentScene->OnUpdate();
+        // Handle draw
         GameData::currentScene->drawableStack->Draw();
 
         GameData::HandleSceneChange();

@@ -10,7 +10,15 @@ class Event {
 public:
     Event() = default;
     virtual ~Event() = default;
+};
 
+class EventDispatcher{
+public:
+    EventDispatcher() = default;
+
+    void AddEvent(Event* event);
+
+    std::deque<Event*> events{};
 };
 
 

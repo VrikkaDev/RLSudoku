@@ -33,13 +33,15 @@ void NumberButtons::OnStart() {
             auto* tb = new GenericButton(std::to_string(t+1).c_str(), rec);
             tb->fontSize=ow/1.5;
             tb->OnStart();
-            tb->OnClick = [tb,t](MouseEvent* event){
+            tb->OnClick = [this,t](MouseEvent* event){
                 // Get Gamescene from currentscene
                 if (auto* gs = dynamic_cast<GameScene*>(GameData::currentScene.get())){
                     // Create fake keyboardinput event and give it to tilegrid
                     // In raylib 49 is key one
                     auto* ke = new KeyboardEvent(1, 49+t);
                     gs->tileGrid->OnEvent(ke);
+                    // Send to this aswell so it knows to grey out
+                    this->OnEvent(ke);
                 }
             };
             tb->parent = this;
@@ -49,18 +51,21 @@ void NumberButtons::OnStart() {
         }
     }
 
+    // The X BUTTON
     float ow = (width/4), oh = (height/4);
-    auto rec = Rectangle {(float)x + ow/2, (float)y + oh * 3 , ow*3+2, oh};
+    auto rec = Rectangle {(float)x + ow/2, (float)y + oh * 3 + 3 , ow*3+2, oh};
 
     auto* tb = new GenericButton("X", rec);
     tb->fontSize=ow/1.5;
     tb->OnStart();
-    tb->OnClick = [](MouseEvent* event){
+    tb->OnClick = [this](MouseEvent* event){
         // Get Gamescene from currentscene
         if (auto* gs = dynamic_cast<GameScene*>(GameData::currentScene.get())){
             // Create fake keyboardinput event and give it to tilegrid
             auto* ke = new KeyboardEvent(1, KEY_BACKSLASH);
             gs->tileGrid->OnEvent(ke);
+            // Send to this aswell so it knows to grey out
+            this->OnEvent(ke);
         }
     };
     tb->parent = this;
@@ -81,6 +86,29 @@ void NumberButtons::OnStart() {
             }
         }
     };
+
+    OnEvent = [this](Event* event) {
+        // :D:D
+        if (auto* gs = dynamic_cast<GameScene*>(GameData::currentScene.get())){
+            for (int i = 0; i < 9; i++){
+                if (auto* gb = dynamic_cast<GenericButton*>(children[i])){
+
+                    auto mp = gs->tileGrid->tileValues;
+
+                    int rv = i+1;
+                    // Count how many values of rv in the map
+                    int count = std::count_if(mp.begin(), mp.end(), [rv](const std::pair<int, int>& pair) {
+                        return pair.second == rv;
+                    });
+
+                    gb->textColor = count >= 9 ? LIGHTGRAY : WHITE;
+                }
+            }
+        }
+    };
+
+    // Refresh the button colors onStart
+    OnEvent(nullptr);
 
 }
 

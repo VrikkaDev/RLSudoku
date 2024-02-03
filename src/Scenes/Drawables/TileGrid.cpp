@@ -12,9 +12,9 @@
 TileGrid::TileGrid() : Drawable(){
 }
 
-TileGrid::TileGrid(sudoku::Board* brd, sudoku::Solver* slvr, Rectangle rec) {
-    solver = slvr;
+TileGrid::TileGrid(SudokuBoard* brd, SudokuBoard* solved, Rectangle rec) {
     board = brd;
+    solvedBoard = solved;
     x = rec.x;
     y = rec.y;
     width = rec.width;
@@ -44,19 +44,20 @@ void TileGrid::OnStart() {
                 return;
             }
 
-
             int num = KeyHelper::GetNumberFromKeyNum(ke->Key);
 
+            // Set the num of selected tile on keypress
             auto* dr = this->children[this->selectedTile];
             if (auto* drdre = dynamic_cast<TileButton*>(dr)){
                 drdre->SetText(std::to_string(num));
             }
+
+            // To refresh "options_toggle_hlsamenumbers"
+            SelectTile(selectedTile);
         }
     };
 
-    solvedBoard = new sudoku::Board();
-    solver->solve(*board, *solvedBoard);
-
+    std::string vstr;
     // Create tiles
     int t = 0;
     for (int i = 0; i < 9; i++){ // Column
@@ -69,24 +70,30 @@ void TileGrid::OnStart() {
             float ow = (width/9), oh = (height/9);
             auto rec = Rectangle {(float)x + i * ow + xit, (float)y + j * oh + xjt, ow, oh};
 
-            auto val = board->valueAt(j, i);
-            std::string vstr = std::to_string(val);
+            auto val = board->at(t);
+            vstr = std::to_string(static_cast<int>(val->value));
+
             // If its 0 make it be nothing
             if(vstr == "0") vstr = "";
 
-            auto* tb = new TileButton(t, vstr.c_str(), (int)solvedBoard->valueAt(j,i), rec);
+            auto* tb = new TileButton(t, vstr.c_str(), solvedBoard->at(t)->value, rec);
             tb->fontSize=ow/1.5;
-            tb->OnStart();
             tb->parent = this;
 
             children.push_back(tb);
             t++;
         }
     }
+
+    // Needs to be separate because TileButton::OnStart()
+    // modifies the board so it messes up the numbers
+    for (Drawable* ch : children) {
+        ch->OnStart();
+    }
 }
 
 void TileGrid::Draw() {
-    DrawRectangle(x, y, width, height, color);
+    DrawRectangle(x, y, width-1, height-1, color);
 
     // Draw children aswell
     for (Drawable* tg : children){
@@ -124,8 +131,9 @@ void TileGrid::SelectTile(int tilenumber) {
                 }
             }
 
+            // SameNumber highlight
             if(j2.contains("value") && j2["value"]){
-                if(tb->text == cb->text){
+                if(tb->text == cb->text && !tb->text.empty() && tb->text != "-1"){
                     tb->inGridLine = true;
                 }
             }
@@ -133,5 +141,18 @@ void TileGrid::SelectTile(int tilenumber) {
             tb->DeSelect();
         }
     }
+}
+
+void TileGrid::CheckIfFinished() {
+    // If the board is same as solvedboard. its finished
+    this->isFinished = board->operator==(*solvedBoard);
+}
+
+void TileGrid::SetTile(int tilenumber, int value) {
+
+    if (value < 0) value = 0;
+
+    tileValues[tilenumber] = value;
+    board->setValue(tilenumber, value);
 }
 

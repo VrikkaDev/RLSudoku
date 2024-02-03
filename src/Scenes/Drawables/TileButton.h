@@ -17,7 +17,6 @@ public:
 
     Color color = LIGHTGRAY;
     Color selectedColor = DARKGRAY;
-    Color pressColor = DARKGRAY;
 
     Color gridlineColor = GRAY;
 

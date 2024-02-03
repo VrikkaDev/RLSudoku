@@ -11,17 +11,23 @@
 class TileGrid : public Drawable{
 public:
     TileGrid();
-    explicit TileGrid(sudoku::Board* brd, sudoku::Solver* slvr, Rectangle rec);
+    explicit TileGrid(SudokuBoard* brd, SudokuBoard* solved, Rectangle rec);
     void Draw() override;
     void OnStart() override;
 
+    void CheckIfFinished();
+
+    void SetTile(int tilenumber, int value);
     void SelectTile(int tilenumber);
 
     int selectedTile = -1;// Selected tile -1 is none
+    SudokuBoard* board;
+    SudokuBoard* solvedBoard;
 
-    sudoku::Solver* solver = nullptr;
-    sudoku::Board* board = nullptr;
-    sudoku::Board* solvedBoard = nullptr;
+    bool isFinished = false;
+
+    // This could be used for more things than only the 9 detection. would probably be more efficient.
+    std::map<int,int> tileValues{};// {tilenumber, value}
 
     Color color = DARKGRAY;
 };

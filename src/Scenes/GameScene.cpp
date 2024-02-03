@@ -8,28 +8,24 @@
 #include "MainMenuScene.h"
 #include "Scenes/Drawables/TileButton.h"
 #include "Scenes/Drawables/TileGrid.h"
-#include "Helpers/SudokuHelper.h"
 #include "Scenes/Drawables/ClockWidget.h"
 #include "Scenes/Drawables/NumberButtons.h"
 
-GameScene::GameScene() : Scene(){
+#include "JCZSolve.h"
 
+GameScene::GameScene() : Scene(){
 }
 
 GameScene::GameScene(int difficulty) : Scene() {
     this->difficulty = difficulty;
 
-    // TODO Create own sudoku generator/solver for better difficulties
+    board = genBoard(difficulty);
 
-    auto diff = sudoku::PuzzleDifficulty::Easy;
-    if(difficulty > 30) diff = sudoku::PuzzleDifficulty::Medium;
-    if(difficulty > 60) diff = sudoku::PuzzleDifficulty::Hard;
+    char solvstr[81];
+    std::string st = board.parser();
+    JCZSolver(st.c_str(), solvstr, 5);
 
-    auto sdg = SudokuHelper::GenerateSudoku(diff, board);
-    if(sdg == sudoku::GeneratorResult::AsyncGenCancelled){
-        std::cout<<"AsyncGenCancelled"<<std::endl;
-    }
-
+    solvedBoard = SudokuBoard(solvstr);
 }
 
 void GameScene::Setup() {
@@ -44,7 +40,7 @@ void GameScene::Setup() {
 
     // Sudoku Tilegrid
     float tw = 400, th = 400, tx = 20, ty = GetScreenHeight()/2 - th/2;
-    auto tb = new TileGrid(&board, &solver, Rectangle{tx,ty,tw,th});
+    auto tb = new TileGrid(&board, &solvedBoard, Rectangle{tx,ty,tw,th});
     tileGrid = tb;
     drawableStack->AddDrawable(tb);
 

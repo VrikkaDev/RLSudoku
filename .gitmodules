@@ -1,9 +1,6 @@
 [submodule "vendor/raylib"]
 	path = vendor/raylib
 	url = https://github.com/raysan5/raylib
-[submodule "vendor/libsudoku"]
-	path = vendor/libsudoku
-	url = https://github.com/raulcostajunior/libsudoku.git
 [submodule "vendor/json"]
 	path = vendor/json
 	url = https://github.com/nlohmann/json.git

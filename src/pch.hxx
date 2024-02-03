@@ -22,9 +22,8 @@
 #include "raylib.h"
 #include "raymath.h"
 
-#include "libsudoku/src/board.h"
-#include "libsudoku/src/generator.h"
-#include "libsudoku/src/solver.h"
+#include "sudokuGen.h"
+//#include "JCZSolve.h"
 
 #include "json/single_include/nlohmann/json.hpp"
 

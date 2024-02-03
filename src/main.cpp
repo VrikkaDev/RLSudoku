@@ -1,7 +1,6 @@
 #include <iostream>
 #include "pch.hxx"
-#include "Sudoku.h"
-#include "Helpers/SudokuHelper.h"
+#include "Game.h"
 
 int main() {
     const int screenWidth = 800;
@@ -11,10 +10,10 @@ int main() {
     InitWindow(screenWidth, screenHeight, "Simple raylib sudoku");
     SetTargetFPS(60);
 
-    Fonts::default_font = LoadFontEx("../assets/fonts/Roboto-Black.ttf", 96, 0, 0);
+    Fonts::default_font = LoadFontEx("./assets/fonts/Roboto-Black.ttf", 96, 0, 0);
 
     // Run the game
-    Sudoku::Run();
+    Game::Run();
 
     // Close window and gl context
     CloseWindow();

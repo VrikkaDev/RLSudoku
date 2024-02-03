@@ -13,6 +13,8 @@ public:
     Scene();
     ~Scene() = default;
     virtual void Setup(){}
+    virtual void OnUpdate();
+    std::shared_ptr<EventDispatcher> eventDispatcher;
     std::shared_ptr<DrawableStack> drawableStack;
 };
 

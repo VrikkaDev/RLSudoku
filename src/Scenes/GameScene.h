@@ -17,8 +17,8 @@ public:
 
     void Setup() override;
 
-    sudoku::Board board = sudoku::Board();
-    sudoku::Solver solver = sudoku::Solver();
+    SudokuBoard board;
+    SudokuBoard solvedBoard;
 
     TileGrid* tileGrid;
 

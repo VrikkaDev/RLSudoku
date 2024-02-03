@@ -3,3 +3,7 @@
 //
 
 #include "Event.h"
+
+void EventDispatcher::AddEvent(Event* event) {
+    events.push_back(event);
+}

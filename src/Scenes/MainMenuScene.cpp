@@ -32,8 +32,8 @@ void MainMenuScene::Setup() {
 
 
     // Difficulty dropdown
-    float dw = 190, dh = 50, dx = GetScreenWidth()/2 - dw/2 + 260, dy = GetScreenHeight()/2 - dh/2 - 70;
-    auto db = new GenericDropdown({{"Easy", 10}, {"Medium", 40}, {"Hard", 70}}, Rectangle{dx,dy,dw,dh});
+    float dw = 200, dh = 50, dx = GetScreenWidth()/2 - dw/2 + 260, dy = GetScreenHeight()/2 - dh/2 - 70;
+    auto db = new GenericDropdown({{"Easy", 1}, {"Medium", 40}, {"Hard", 50}, {"Very Hard", 60}}, Rectangle{dx,dy,dw,dh});
     drawableStack->AddDrawable(db);
 
     // Generate game button
