@@ -22,6 +22,8 @@ public:
     double startTime = 0.0;
     double currentTime = 0.0;
 
+    bool isRunning = true;
+
     int fontSize = 40;
 
 };

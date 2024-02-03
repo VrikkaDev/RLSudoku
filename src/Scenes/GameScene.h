@@ -20,9 +20,10 @@ public:
     SudokuBoard board;
     SudokuBoard solvedBoard;
 
+    // This isnt good to be here
     TileGrid* tileGrid;
 
-    // Difficulty 0-100 not in use currently
+    // Difficulty 0-100
     int difficulty = 0;
 };
 

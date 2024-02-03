@@ -5,6 +5,8 @@
 #include "ClockWidget.h"
 #include "GameData.h"
 #include "Storage/StorageManager.h"
+#include "Event/GameEvent.h"
+#include "Scenes/Scene.h"
 
 ClockWidget::ClockWidget() : Drawable() {
 
@@ -19,6 +21,30 @@ ClockWidget::ClockWidget(Rectangle rec) {
 
 void ClockWidget::OnStart() {
     startTime = GetTime();
+
+    OnEvent = [this](Event* event){
+        if(auto* ge = dynamic_cast<GameEvent*>(event)){
+            if(ge->EventType == 1){
+                isRunning = false;
+
+                std::chrono::seconds sec((int)currentTime);
+                // Convert seconds into hh:mm:ss
+                auto seconds = std::to_string(sec.count() % 60);
+                if(seconds.size() == 1) seconds = "0"+seconds;
+                auto minutes = std::to_string(std::chrono::duration_cast<std::chrono::minutes>(sec).count() % 60);
+                if(minutes.size() == 1) minutes = "0"+minutes;
+                auto hours = std::to_string(std::chrono::duration_cast<std::chrono::hours>(sec).count());
+                if(hours.size() == 1) hours = "0"+hours;
+
+                std::string tx = hours + ":" + minutes
+                                 + ":" + seconds;
+
+                // EventType 2 = timedata
+                auto* te = new GameEvent(2, tx);
+                GameData::currentScene->eventDispatcher->AddEvent(te);
+            }
+        }
+    };
 }
 
 void ClockWidget::Draw() {
@@ -32,7 +58,7 @@ void ClockWidget::Draw() {
 
     // Get the elapsed time in seconds
     double timeNow = GetTime();
-    currentTime = timeNow - startTime;
+    if (isRunning)currentTime = timeNow - startTime;
     std::chrono::seconds sec((int)currentTime);
     // Convert seconds into hh:mm:ss
     auto seconds = std::to_string(sec.count() % 60);

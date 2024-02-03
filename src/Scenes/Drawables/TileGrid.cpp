@@ -8,6 +8,8 @@
 #include "Helpers/KeyHelper.h"
 #include "GameData.h"
 #include "Storage/StorageManager.h"
+#include "Event/GameEvent.h"
+#include "Scenes/Scene.h"
 
 TileGrid::TileGrid() : Drawable(){
 }
@@ -146,6 +148,11 @@ void TileGrid::SelectTile(int tilenumber) {
 void TileGrid::CheckIfFinished() {
     // If the board is same as solvedboard. its finished
     this->isFinished = board->operator==(*solvedBoard);
+    if (isFinished){
+        // Event type 1 = win game event and no data needed
+        auto* e = new GameEvent(1, "");
+        GameData::currentScene->eventDispatcher->AddEvent(e);
+    }
 }
 
 void TileGrid::SetTile(int tilenumber, int value) {

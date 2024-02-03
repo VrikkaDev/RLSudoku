@@ -12,6 +12,7 @@
 #include "Scenes/Drawables/NumberButtons.h"
 
 #include "JCZSolve.h"
+#include "Scenes/Drawables/WinScreen.h"
 
 GameScene::GameScene() : Scene(){
 }
@@ -30,14 +31,6 @@ GameScene::GameScene(int difficulty) : Scene() {
 
 void GameScene::Setup() {
 
-    // Back button
-    float bw = 150, bh = 50, bx = GetScreenWidth() - bw - 20, by = GetScreenHeight() - bh - 20;
-    auto bb = new GenericButton("Back", Rectangle{bx,by,bw,bh});
-    bb->OnClick = [](MouseEvent* event) {
-        GameData::SetScene(std::make_unique<MainMenuScene>());
-    };
-    drawableStack->AddDrawable(bb);
-
     // Sudoku Tilegrid
     float tw = 400, th = 400, tx = 20, ty = GetScreenHeight()/2 - th/2;
     auto tb = new TileGrid(&board, &solvedBoard, Rectangle{tx,ty,tw,th});
@@ -53,4 +46,17 @@ void GameScene::Setup() {
     float nw = 320, nh = 320, nx = GetScreenWidth() - nw - 20, ny = 20;
     auto nb = new NumberButtons(Rectangle{nx,ny,nw,nh});
     drawableStack->AddDrawable(nb);
+
+    // Win Screen
+    float ww = GetScreenWidth(), wh = GetScreenHeight(), wx = 0, wy = 0;
+    auto wb = new WinScreen(Rectangle{wx,wy,ww,wh});
+    drawableStack->AddDrawable(wb);
+
+    // Back button
+    float bw = 150, bh = 50, bx = GetScreenWidth() - bw - 20, by = GetScreenHeight() - bh - 20;
+    auto bb = new GenericButton("Back", Rectangle{bx,by,bw,bh});
+    bb->OnClick = [](MouseEvent* event) {
+        GameData::SetScene(std::make_unique<MainMenuScene>());
+    };
+    drawableStack->AddDrawable(bb);
 }
