@@ -31,19 +31,22 @@ const char* getTimeFormatted(double currentTime){
 
     std::string tx = hours + ":" + minutes
                      + ":" + seconds;
-    return tx.c_str();
+    return std::move(tx).c_str();
 }
 
 void ClockWidget::OnStart() {
+
+    nlohmann::json j = GameData::storageManager->GetData("options_toggle_showclock");
+
+    enabled = j.contains("value") && j["value"];
+
     startTime = GetTime();
 
     OnEvent = [this](Event* event){
         if(auto* ge = dynamic_cast<GameEvent*>(event)){
             if(ge->EventType == 1){ // EventType 1 == wingame
                 isFinished = true;
-
                 // Send timedata event
-
 
                 // EventType 2 = timedata
                 auto* te = new GameEvent(2, getTimeFormatted(currentTime));

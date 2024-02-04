@@ -14,7 +14,11 @@ void StorageManager::Save() {
     std::ifstream RFile(filename);
     nlohmann::json root = {};
     if(RFile.good()){
-        root = nlohmann::json::parse(RFile);
+        try{
+            root = nlohmann::json::parse(RFile);
+        }catch (std::exception& exception){
+            root = nlohmann::json();
+        }
     }
     RFile.close();
 
@@ -22,9 +26,13 @@ void StorageManager::Save() {
         nlohmann::json sj = saveable->GetJson();
         root[saveable->save_token] = sj;
     }
+
+    // For better readability
+    std::string ss = root.dump(4);
+
     // Create and open a config file
     std::ofstream WFile(filename);
-    WFile << root;
+    WFile << ss;
     WFile.close();
 
     curr_json = root;

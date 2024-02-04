@@ -31,11 +31,10 @@ void DrawableStack::OnEvent(Event* event) {
             }
 
             // EventType 2 is RELEASED
-            if (me->EventType == 2){
+            if (me->EventType == 2 && drawable->enabled){
                 drawable->OnClick(me);
             }
         }
-
 
     }
 }

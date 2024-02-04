@@ -5,8 +5,9 @@
 #include "KeyHelper.h"
 
 std::map<int, int> KeyHelper::keyNumberMap = {
-        {KeyboardKey::KEY_KP_0, -1},
-        {KeyboardKey::KEY_ZERO, -1},
+        {KeyboardKey::KEY_KP_0, 0},
+        {KeyboardKey::KEY_ZERO, 0},
+        {KeyboardKey::KEY_BACKSPACE, 0},
         {KeyboardKey::KEY_KP_1, 1},
         {KeyboardKey::KEY_ONE, 1},
         {KeyboardKey::KEY_KP_2, 2},

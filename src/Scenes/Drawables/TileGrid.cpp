@@ -23,6 +23,10 @@ TileGrid::TileGrid(SudokuBoard* brd, SudokuBoard* solved, Rectangle rec) {
     height = rec.height;
 }
 
+int posToIndex(Vector2 pos) {
+    return pos.x * 9 + pos.y;
+}
+
 void TileGrid::OnStart() {
     OnClick = [this](MouseEvent* event){
         if(isPaused){
@@ -52,8 +56,32 @@ void TileGrid::OnStart() {
 
             int num = KeyHelper::GetNumberFromKeyNum(ke->Key);
 
-            // Set the num of selected tile on keypress
-            if(selectedTile != -1 && !isPaused){
+            // Num keys movement
+            if(num == -1){
+                int row = selectedTile / 9;
+                int column = selectedTile % 9;
+                Vector2 vc {-1,-1};
+                if(ke->Key == KEY_RIGHT) {
+                    vc = {(float)row+1 ,(float)column};
+                }else if(ke->Key == KEY_LEFT) {
+                    vc = {(float)row-1 ,(float)column};
+                }else if(ke->Key == KEY_UP) {
+                    vc = {(float)row ,(float)column-1};
+                }else if(ke->Key == KEY_DOWN) {
+                    vc = {(float)row ,(float)column+1};
+                }
+                if(vc.x != -1){
+                    // Make sure it doesn't go out of range
+                    float xx = std::max(0.f,(float)std::min(8.f, vc.x));
+                    float yy = std::max(0.f,(float)std::min(8.f, vc.y));
+                    vc = {xx, yy};
+                    SelectTile(posToIndex(vc));
+                }
+
+            } else if(selectedTile != -1 && !isPaused){ // Set the num of selected tile on keypress
+
+                if (num == 0) num = -1;
+
                 auto* dr = this->children[this->selectedTile];
                 if (auto* drdre = dynamic_cast<TileButton*>(dr)){
                     drdre->SetText(std::to_string(num));
@@ -130,6 +158,12 @@ void TileGrid::SelectTile(int tilenumber) {
     int targetRow = tilenumber / 9;
     int targetColumn = tilenumber % 9;
 
+    // check
+    if(tilenumber > children.size()){
+        std::cout<<"Tried to set tilenumber " << tilenumber << " that doesnt exist" << std::endl;
+        return;
+    }
+
     auto* cb = dynamic_cast<TileButton*>(children[tilenumber]);
 
 
@@ -137,6 +171,7 @@ void TileGrid::SelectTile(int tilenumber) {
         if (auto* tb = dynamic_cast<TileButton*>(d)){
             tb->inGridLine = false;
             if (tb->tileNumber == tilenumber){
+                tb->selected = true;
                 continue;
             }
             // If showgridlines is enabled

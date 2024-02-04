@@ -6,7 +6,7 @@
 #include "GameData.h"
 #include "Scenes/Scene.h"
 
-GenericDropdown::GenericDropdown() : Drawable(){
+GenericDropdown::GenericDropdown() : Drawable(), Saveable("generic_dropdown"){
     width = 300;
     height = 50;
 
@@ -14,7 +14,8 @@ GenericDropdown::GenericDropdown() : Drawable(){
     y = GetScreenHeight()/2 - height/2;
 }
 
-GenericDropdown::GenericDropdown(std::map<const char*, int> txts, Rectangle rec) : Drawable(){
+GenericDropdown::GenericDropdown(std::map<const char*, int> txts, const char* save_token, Rectangle rec) : Drawable(),
+                                                                                                           Saveable(save_token){
     texts = txts;
     x = rec.x;
     y = rec.y;

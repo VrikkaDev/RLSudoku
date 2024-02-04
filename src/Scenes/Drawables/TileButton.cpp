@@ -30,9 +30,6 @@ TileButton::TileButton(int tilenum, const char* txt, int correctNum, Rectangle r
 
 void TileButton::OnStart() {
     OnClick = [this](MouseEvent* event){
-        if (!selected){
-            selected = true;
-        }
 
         if (auto* p = dynamic_cast<TileGrid*>(parent)){
             p->SelectTile(tileNumber);

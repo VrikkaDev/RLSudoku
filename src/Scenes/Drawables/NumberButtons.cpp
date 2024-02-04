@@ -62,7 +62,7 @@ void NumberButtons::OnStart() {
         // Get Gamescene from currentscene
         if (auto* gs = dynamic_cast<GameScene*>(GameData::currentScene.get())){
             // Create fake keyboardinput event and give it to tilegrid
-            auto* ke = new KeyboardEvent(1, KEY_BACKSLASH);
+            auto* ke = new KeyboardEvent(1, KEY_BACKSPACE);
             gs->tileGrid->OnEvent(ke);
             // Send to this aswell so it knows to grey out
             this->OnEvent(ke);

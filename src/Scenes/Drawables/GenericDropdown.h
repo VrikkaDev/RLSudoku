@@ -8,13 +8,25 @@
 
 #include "Graphics/Drawable.h"
 #include "GenericButton.h"
+#include "Storage/Saveable.h"
 
-class GenericDropdown : public Drawable{
+class GenericDropdown : public Drawable, public Saveable{
 public:
     GenericDropdown();
-    GenericDropdown(std::map<const char*, int> txts, Rectangle rec);
+    GenericDropdown(std::map<const char*, int> txts, const char* save_token, Rectangle rec);
     void OnStart() override;
     void Draw() override;
+
+    nlohmann::json GetJson() override{
+        nlohmann::json json;
+        json["selected"] = selectedText;
+        return json;
+    };
+    void Load(const nlohmann::json& data) override{
+        if(data.contains("selected")){
+            selectedText = data["selected"];
+        }
+    };
 
     Color color = GRAY;
     Color hoverColor = DARKGRAY;
