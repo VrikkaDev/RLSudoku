@@ -16,8 +16,6 @@ public:
     void OnStart() override;
     void Draw() override;
 
-    bool enabled = false;
-
     std::string timestring;
 
     Color color = CLITERAL(Color){ 150, 150, 150, 200 } ;

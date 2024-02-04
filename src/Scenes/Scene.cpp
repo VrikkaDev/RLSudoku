@@ -17,4 +17,6 @@ void Scene::OnUpdate() {
         drawableStack->OnEvent(event);
         eventDispatcher->events.pop_front();
     }
+
+    drawableStack->OnUpdate();
 }

@@ -20,7 +20,7 @@ public:
     SudokuBoard board;
     SudokuBoard solvedBoard;
 
-    // This isnt good to be here
+    // This isnt good to be here and can be removed, should be using the event system
     TileGrid* tileGrid;
 
     // Difficulty 0-100

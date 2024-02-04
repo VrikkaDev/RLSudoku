@@ -16,7 +16,12 @@ public:
     };
     ~GameEvent() = default;
 
-    int EventType = 0; // 0:NONE 1:WINGAME 2:TIMEDATA
+    int EventType = 0;
+    // 0:NONE
+    // 1:WINGAME
+    // 2:TIMEDATA {data=hh:mm:ss}
+    // 3:PAUSE {data=1/0}
+
     std::string Data;
 };
 

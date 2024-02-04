@@ -19,6 +19,9 @@ public:
     }
     virtual void OnStart(){
     }
+    virtual bool IsHovering(Vector2 mousePos){
+        return enabled && CheckCollisionPointRec(mousePos, GetRectangle());
+    }
     std::function<void(MouseEvent* event)> OnClick;
     std::function<void(Event* event)> OnEvent;
 
@@ -35,6 +38,8 @@ public:
     // Data
     int x = 0, y = 0;
     int width = 100, height = 100;
+
+    bool enabled = true;
 
 
     // TODO children system.... maybe

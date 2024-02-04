@@ -38,7 +38,7 @@ void GameScene::Setup() {
     drawableStack->AddDrawable(tb);
 
     // Game Clock
-    float cw = 150, ch = 50, cx = GetScreenWidth() - cw*2 - 40, cy = GetScreenHeight() - ch - 20;
+    float cw = 200, ch = 50, cx = GetScreenWidth() - 300 - 70, cy = GetScreenHeight() - ch - 20;
     auto cb = new ClockWidget(Rectangle{cx,cy,cw,ch});
     drawableStack->AddDrawable(cb);
 
@@ -53,7 +53,7 @@ void GameScene::Setup() {
     drawableStack->AddDrawable(wb);
 
     // Back button
-    float bw = 150, bh = 50, bx = GetScreenWidth() - bw - 20, by = GetScreenHeight() - bh - 20;
+    float bw = 130, bh = 50, bx = GetScreenWidth() - bw - 20, by = GetScreenHeight() - bh - 20;
     auto bb = new GenericButton("Back", Rectangle{bx,by,bw,bh});
     bb->OnClick = [](MouseEvent* event) {
         GameData::SetScene(std::make_unique<MainMenuScene>());

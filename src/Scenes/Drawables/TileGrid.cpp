@@ -25,16 +25,20 @@ TileGrid::TileGrid(SudokuBoard* brd, SudokuBoard* solved, Rectangle rec) {
 
 void TileGrid::OnStart() {
     OnClick = [this](MouseEvent* event){
-        if (auto* me = dynamic_cast<MouseEvent*>(event)){
-            for (auto* dr : children){
-                if (!CheckCollisionPointRec(me->MousePosition, dr->GetRectangle())){
-                    continue;
-                }
+        if(isPaused){
+            // Send resume event
+            auto* ge = new GameEvent(3, "0");
+            GameData::currentScene->eventDispatcher->AddEvent(ge);
+            return;
+        }
+        for (auto* dr : children){
+            if (!CheckCollisionPointRec(event->MousePosition, dr->GetRectangle())){
+                continue;
+            }
 
-                // EventType 2 is RELEASED
-                if (me->EventType == 2){
-                    dr->OnClick(me);
-                }
+            // EventType 2 is RELEASED
+            if (event->EventType == 2){
+                dr->OnClick(event);
             }
         }
     };
@@ -49,13 +53,18 @@ void TileGrid::OnStart() {
             int num = KeyHelper::GetNumberFromKeyNum(ke->Key);
 
             // Set the num of selected tile on keypress
-            auto* dr = this->children[this->selectedTile];
-            if (auto* drdre = dynamic_cast<TileButton*>(dr)){
-                drdre->SetText(std::to_string(num));
+            if(selectedTile != -1 && !isPaused){
+                auto* dr = this->children[this->selectedTile];
+                if (auto* drdre = dynamic_cast<TileButton*>(dr)){
+                    drdre->SetText(std::to_string(num));
+                }
+                // To refresh "options_toggle_hlsamenumbers"
+                SelectTile(selectedTile);
             }
-
-            // To refresh "options_toggle_hlsamenumbers"
-            SelectTile(selectedTile);
+        }else if (auto* ge = dynamic_cast<GameEvent*>(event)){
+            if(ge->EventType == 3){ // EventType 3 == pause event
+                isPaused = ge->Data == "1";
+            }
         }
     };
 
@@ -100,6 +109,13 @@ void TileGrid::Draw() {
     // Draw children aswell
     for (Drawable* tg : children){
         tg->Draw();
+    }
+
+    // Draw pause screen
+    if(isPaused){
+        DrawRectangle(x, y, width-1, height-1, CLITERAL(Color){ 150, 150, 150, 200 });
+        DrawTextBC("PAUSED", x, y-20, 48, width, height, color);
+        DrawTextBC("Click to resume!", x, y + 20, 32, width, height, color);
     }
 }
 

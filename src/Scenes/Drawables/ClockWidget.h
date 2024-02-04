@@ -17,15 +17,18 @@ public:
     void Draw() override;
 
     Color color = GRAY;
+    Color hoverColor = DARKGRAY;
     Color textColor = WHITE;
 
-    double startTime = 0.0;
-    double currentTime = 0.0;
-
-    bool isRunning = true;
+    bool isFinished = false;
+    bool paused = false;
 
     int fontSize = 40;
 
+private:
+    double startTime = 0.0;
+    double currentTime = 0.0;
+    double previousTime = 0.0;
 };
 
 

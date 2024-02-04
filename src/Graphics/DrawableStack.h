@@ -16,6 +16,7 @@ public:
     void Draw();
     void OnEvent(Event* event);
     void OnUpdate();
+    bool IsHovering(Vector2 mousePosition);
     void AddDrawable(Drawable* drawable);
     void RemoveDrawable(Drawable* drawable);
 private:

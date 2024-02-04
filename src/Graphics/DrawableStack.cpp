@@ -66,3 +66,12 @@ void DrawableStack::RemoveDrawable(Drawable* drawable) {
         m_Drawables.erase(it);
     }
 }
+
+bool DrawableStack::IsHovering(Vector2 mousePosition) {
+    for (const auto& drawable : m_Drawables) {
+        if(drawable->IsHovering(mousePosition)){
+            return true;
+        }
+    }
+    return false;
+}

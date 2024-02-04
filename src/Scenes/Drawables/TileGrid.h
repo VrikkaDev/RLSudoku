@@ -21,8 +21,6 @@ public:
     void SelectTile(int tilenumber);
 
     int selectedTile = -1;// Selected tile -1 is none
-    SudokuBoard* board;
-    SudokuBoard* solvedBoard;
 
     bool isFinished = false;
 
@@ -30,6 +28,11 @@ public:
     std::map<int,int> tileValues{};// {tilenumber, value}
 
     Color color = DARKGRAY;
+private:
+    SudokuBoard* board;
+    SudokuBoard* solvedBoard;
+
+    bool isPaused = false;
 };
 
 

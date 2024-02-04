@@ -61,6 +61,15 @@ void Game::Run() {
 
         // Handle update
         GameData::currentScene->OnUpdate();
+
+        bool ishovering = GameData::currentScene->drawableStack->IsHovering(mousePoint);
+
+        if(ishovering){
+            SetMouseCursor(MOUSE_CURSOR_POINTING_HAND);
+        } else{
+            SetMouseCursor(MOUSE_CURSOR_DEFAULT);
+        }
+
         // Handle draw
         GameData::currentScene->drawableStack->Draw();
 

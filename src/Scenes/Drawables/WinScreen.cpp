@@ -17,14 +17,13 @@ WinScreen::WinScreen(Rectangle rec) {
 }
 
 void WinScreen::OnStart() {
-
+    enabled = false;
     OnEvent = [this](Event* event){
         if(auto* ge = dynamic_cast<GameEvent*>(event)){
-            std::cout<<ge->EventType<<std::endl;
-            std::cout<<ge->Data<<std::endl;
+            // On OnWin enable this
             if(ge->EventType == 1){
                 enabled = true;
-            }else if(ge->EventType == 2){
+            }else if(ge->EventType == 2){ // On TimeData set the timer text
                 timestring = ge->Data;
             }
         }
@@ -32,6 +31,7 @@ void WinScreen::OnStart() {
 }
 
 void WinScreen::Draw() {
+    // If enabled draw
     if(enabled){
         DrawRectangle(x, y, width, height, color);
         DrawTextBC("You Won!", x, y-50, 50, width, height, DARKGRAY);
