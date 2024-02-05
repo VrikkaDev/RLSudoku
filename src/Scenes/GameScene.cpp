@@ -53,7 +53,7 @@ void GameScene::Setup() {
 
     // Sudoku Tilegrid
     float tw = GetScreenHeight()-80, th = GetScreenHeight()-80, tx = 20, ty = GetScreenHeight()/2 - th/2;
-    auto tb = new TileGrid(board.get(), orgBoard.get(), solvedBoard.get(), Rectangle{tx,ty,tw,th});
+    auto tb = new TileGrid(board.get(), orgBoard.get(), solvedBoard.get(), startNotes, Rectangle{tx,ty,tw,th});
     tileGrid = tb;
     drawableStack->AddDrawable(tb);
 
@@ -119,7 +119,9 @@ nlohmann::json GameSaveable::GetJson() {
         if (auto* tb = dynamic_cast<TileButton*>(d)) {
             std::string notesstring;
             for(int i : tb->notes){
-                notesstring += std::to_string(i);
+                if (notesstring.find(std::to_string(i)) == std::string::npos){
+                    notesstring += std::to_string(i);
+                }
             }
             if(notesstring.empty()){
                 continue;
@@ -145,6 +147,21 @@ void GameSaveable::Load(const nlohmann::json& data) {
     scene->board = std::make_unique<SudokuBoard>(td.c_str());
     scene->solvedBoard = std::make_unique<SudokuBoard>(sd.c_str());
     scene->difficulty = data["difficulty"];
+
+    std::string ss = data["notes"];
+
+    std::vector<std::string> nots = StringHelper::SplitString(ss.c_str(), '|');
+
+    for(const auto& tx : nots){
+        if(tx.empty()){
+            continue;
+        }
+
+        std::vector<std::string> ton = StringHelper::SplitString(tx.c_str(), ',');
+        int ind = stoi(ton[0]);
+
+        scene->startNotes[ind] = ton[1];
+    }
 
     // Set time for timewidget
     for(const auto& dr : scene->drawableStack->drawables){

@@ -12,7 +12,7 @@
 class TileGrid : public Drawable{
 public:
     TileGrid();
-    explicit TileGrid(SudokuBoard* brd, SudokuBoard* orgBrd, SudokuBoard* solved, Rectangle rec);
+    explicit TileGrid(SudokuBoard* brd, SudokuBoard* orgBrd, SudokuBoard* solved, std::map<int, std::string> startNotes, Rectangle rec);
     void Draw() override;
     void OnStart() override;
 
@@ -30,6 +30,8 @@ public:
 
     Color color = DARKGRAY;
 private:
+
+    std::map<int, std::string> startNotes;
     SudokuBoard* board;
     SudokuBoard* solvedBoard;
     SudokuBoard* orgBoard;

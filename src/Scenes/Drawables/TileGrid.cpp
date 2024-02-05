@@ -14,14 +14,15 @@
 TileGrid::TileGrid() : Drawable(){
 }
 
-TileGrid::TileGrid(SudokuBoard* brd, SudokuBoard* orgBrd, SudokuBoard* solved, Rectangle rec) : Drawable() {
+TileGrid::TileGrid(SudokuBoard* brd, SudokuBoard* orgBrd, SudokuBoard* solved, std::map<int, std::string> sn, Rectangle rec) : Drawable() {
     orgBoard = orgBrd;
     board = brd;
     solvedBoard = solved;
     x = rec.x;
     y = rec.y;
 
-    int h = rec.height; // Make sure size is multiple of 9
+    startNotes = sn;
+    int h = rec.height; // Make sure size is multiple of 9 for consistency
     int remainder = h % 9;
     if (remainder != 0) {
         h = h - remainder + 9;
@@ -144,10 +145,27 @@ void TileGrid::OnStart() {
         }
     }
 
+
     // Needs to be separate because TileButton::OnStart()
     // modifies the board so it messes up the numbers
     for (Drawable* ch : children) {
         ch->OnStart();
+
+        if(auto* drdre = dynamic_cast<TileButton*>(ch)){
+            auto it = startNotes.find(drdre->tileNumber);
+            if(it != startNotes.end()){
+                std::string notesstring = it->second;
+                for(char &i : notesstring){
+                    std::string astr (1, i);
+                    // Only add if doesnt already have
+                    auto nit = std::find(drdre->notes.begin(), drdre->notes.end(),stoi(astr));
+                    if(nit == drdre->notes.end()){
+                        std::cout<<astr<<std::endl;
+                        drdre->notes.push_back(stoi(astr));
+                    }
+                }
+            }
+        }
     }
 }
 

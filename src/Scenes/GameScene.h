@@ -24,6 +24,7 @@ public:
     std::unique_ptr<SudokuBoard> board;
     std::unique_ptr<SudokuBoard> orgBoard;
     std::unique_ptr<SudokuBoard> solvedBoard;
+    std::map<int, std::string> startNotes = {};
 
     // :(
     TileGrid* tileGrid;
