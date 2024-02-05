@@ -20,8 +20,15 @@ TileGrid::TileGrid(SudokuBoard* brd, SudokuBoard* orgBrd, SudokuBoard* solved, R
     solvedBoard = solved;
     x = rec.x;
     y = rec.y;
-    width = rec.width;
-    height = rec.height;
+
+    int h = rec.height; // Make sure size is multiple of 9
+    int remainder = h % 9;
+    if (remainder != 0) {
+        h = h - remainder + 9;
+    }
+
+    width = h;
+    height = h;
 }
 
 int posToIndex(Vector2 pos) {
@@ -29,6 +36,7 @@ int posToIndex(Vector2 pos) {
 }
 
 void TileGrid::OnStart() {
+
     OnClick = [this](MouseEvent* event){
         if(isPaused){
             // Send resume event
@@ -144,7 +152,7 @@ void TileGrid::OnStart() {
 }
 
 void TileGrid::Draw() {
-    DrawRectangle(x, y, width-1, height-1, color);
+    DrawRectangle(x, y, width+2, height+2, color);
 
     // Draw children aswell
     for (Drawable* tg : children){

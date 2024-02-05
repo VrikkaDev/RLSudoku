@@ -19,6 +19,7 @@ public:
     explicit GameScene(bool load);
 
     void Setup() override;
+    void OnResize() override;
 
     std::unique_ptr<SudokuBoard> board;
     std::unique_ptr<SudokuBoard> orgBoard;

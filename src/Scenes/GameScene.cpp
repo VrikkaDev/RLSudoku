@@ -39,8 +39,10 @@ GameScene::GameScene(bool load) {
 
 void GameScene::Setup() {
 
+
     // Game Clock
-    float cw = 200, ch = 50, cx = GetScreenWidth() - 300 - 70, cy = GetScreenHeight() - ch - 20;
+    float cw = (GetScreenWidth() - (20 + GetScreenHeight() - 80 + 20))/2,
+    ch = GetScreenHeight()/7, cx = 20 + GetScreenHeight() - 80 + 20, cy = GetScreenHeight() - ch - 20;
     auto cb = new ClockWidget(Rectangle{cx,cy,cw,ch});
     drawableStack->AddDrawable(cb);
 
@@ -50,13 +52,15 @@ void GameScene::Setup() {
     gs->Load(json);
 
     // Sudoku Tilegrid
-    float tw = 400, th = 400, tx = 20, ty = GetScreenHeight()/2 - th/2;
+    float tw = GetScreenHeight()-80, th = GetScreenHeight()-80, tx = 20, ty = GetScreenHeight()/2 - th/2;
     auto tb = new TileGrid(board.get(), orgBoard.get(), solvedBoard.get(), Rectangle{tx,ty,tw,th});
     tileGrid = tb;
     drawableStack->AddDrawable(tb);
 
     // Number Buttons
-    float nw = 320, nh = 320, nx = GetScreenWidth() - nw - 20, ny = 20;
+    int wwh = GetScreenWidth() - GetScreenHeight();
+    wwh = std::min((float)wwh, cy-ch);
+    float nw = wwh, nh = wwh, nx = GetScreenWidth() - nw - 20, ny = 20;
     auto nb = new NumberButtons(Rectangle{nx,ny,nw,nh});
     drawableStack->AddDrawable(nb);
 
@@ -66,12 +70,18 @@ void GameScene::Setup() {
     drawableStack->AddDrawable(wb);
 
     // Back button
-    float bw = 130, bh = 50, bx = GetScreenWidth() - bw - 20, by = GetScreenHeight() - bh - 20;
+    float bw = cw - 20,
+    bh = ch, bx = cx + cw + 10, by = cy;
     auto bb = new GenericButton("Back", Rectangle{bx,by,bw,bh});
+    bb->fontSize = bh/2;
     bb->OnClick = [](MouseEvent* event) {
         GameData::SetScene(std::make_unique<MainMenuScene>());
     };
     drawableStack->AddDrawable(bb);
+}
+
+void GameScene::OnResize() {
+    GameData::SetScene(std::make_unique<GameScene>(true));
 }
 
 
@@ -140,6 +150,8 @@ void GameSaveable::Load(const nlohmann::json& data) {
     for(const auto& dr : scene->drawableStack->drawables){
         if(auto* cw = dynamic_cast<ClockWidget*>(dr)){
             cw->SetTime((double)data["time"]);
+            // Pause
+            cw->OnClick(nullptr);
         }
     }
 }

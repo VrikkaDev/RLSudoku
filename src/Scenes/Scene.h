@@ -15,6 +15,7 @@ public:
     ~Scene() = default;
     virtual void Setup(){}
     virtual void OnUpdate();
+    virtual void OnResize();
     std::shared_ptr<EventDispatcher> eventDispatcher;
     std::shared_ptr<DrawableStack> drawableStack;
     SaveableStack saveableStack = SaveableStack();

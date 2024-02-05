@@ -13,6 +13,7 @@ public:
     OptionsScene();
 
     void Setup() override;
+    void OnResize() override;
 };
 
 

@@ -20,3 +20,7 @@ void Scene::OnUpdate() {
 
     drawableStack->OnUpdate();
 }
+
+void Scene::OnResize() {
+    GameData::SetScene(std::make_unique<Scene>());
+}

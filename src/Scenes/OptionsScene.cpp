@@ -63,3 +63,7 @@ void OptionsScene::Setup() {
     drawableStack->AddDrawable(hllb);
 
 }
+
+void OptionsScene::OnResize() {
+    GameData::SetScene(std::make_unique<OptionsScene>());
+}

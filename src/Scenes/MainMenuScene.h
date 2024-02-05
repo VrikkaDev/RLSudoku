@@ -13,6 +13,7 @@ public:
     MainMenuScene();
     ~MainMenuScene();
     void Setup() override;
+    void OnResize() override;
 };
 
 

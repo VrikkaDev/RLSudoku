@@ -28,6 +28,7 @@ void Game::Run() {
     // Main game loop
     while (!WindowShouldClose() && GameData::isRunning)// Detect window close button or ESC key
     {
+
         BeginDrawing();
         ClearBackground(CLITERAL(Color){ 220, 220, 220, 255 } );
         EndDrawing();
@@ -77,6 +78,10 @@ void Game::Run() {
 
         // Handle draw
         GameData::currentScene->drawableStack->Draw();
+
+        if(IsWindowResized()){
+            GameData::currentScene->OnResize();
+        }
 
         GameData::HandleSceneChange();
     }

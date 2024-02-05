@@ -70,4 +70,8 @@ void MainMenuScene::Setup() {
 
 }
 
+void MainMenuScene::OnResize() {
+    GameData::SetScene(std::make_unique<MainMenuScene>());
+}
+
 MainMenuScene::~MainMenuScene() = default;
