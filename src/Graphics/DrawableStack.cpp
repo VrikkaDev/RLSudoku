@@ -8,7 +8,7 @@
 
 void DrawableStack::Draw() {
     // Loops through drawables and draws them
-    for (const auto& drawable : m_Drawables){
+    for (const auto& drawable : drawables){
         if(drawable){
             drawable->Draw();
         }
@@ -16,7 +16,7 @@ void DrawableStack::Draw() {
 }
 
 void DrawableStack::OnEvent(Event* event) {
-    for (const auto& drawable : m_Drawables){
+    for (const auto& drawable : drawables){
 
         if (!drawable){
             continue;
@@ -40,7 +40,7 @@ void DrawableStack::OnEvent(Event* event) {
 }
 
 void DrawableStack::OnUpdate() {
-    for (const auto& drawable : m_Drawables) {
+    for (const auto& drawable : drawables) {
 
         if (!drawable) {
             continue;
@@ -55,19 +55,19 @@ void DrawableStack::OnUpdate() {
 }
 
 void DrawableStack::AddDrawable(Drawable* drawable) {
-    m_Drawables.push_back(drawable);
+    drawables.push_back(drawable);
     drawable->OnStart();
 }
 
 void DrawableStack::RemoveDrawable(Drawable* drawable) {
-    auto it = std::find(m_Drawables.begin(), m_Drawables.end(), drawable);
-    if (it != m_Drawables.end()) {
-        m_Drawables.erase(it);
+    auto it = std::find(drawables.begin(), drawables.end(), drawable);
+    if (it != drawables.end()) {
+        drawables.erase(it);
     }
 }
 
 bool DrawableStack::IsHovering(Vector2 mousePosition) {
-    for (const auto& drawable : m_Drawables) {
+    for (const auto& drawable : drawables) {
         if(drawable->IsHovering(mousePosition)){
             return true;
         }

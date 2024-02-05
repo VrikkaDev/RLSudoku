@@ -30,6 +30,7 @@ void OptionsScene::Setup() {
     auto ttb = new ConfigToggleButton("options_toggle_hlconflicts", "Highlight conflicts", Rectangle{ttx, tty, ttw, tth});
     ttb->tooltip = "Enabling this option highlights \nconflicting numbers on the Sudoku grid.";
     ttb->fontSize = 20;
+    ttb->defaultValue = true;
     drawableStack->AddDrawable(ttb);
 
     // Auto check option togglebutton
@@ -44,6 +45,7 @@ void OptionsScene::Setup() {
     auto tsb = new ConfigToggleButton("options_toggle_showclock", "Show clock", Rectangle{tsx, tsy, tsw, tsh});
     tsb->tooltip = "When enabled, clock will be shown on the bottom right of the screen.";
     tsb->fontSize = 20;
+    tsb->defaultValue = true;
     drawableStack->AddDrawable(tsb);
 
     // Show grid lines option togglebutton

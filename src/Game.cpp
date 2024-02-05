@@ -8,8 +8,13 @@
 #include "Scenes/MainMenuScene.h"
 #include "Storage/StorageManager.h"
 #include "Event/KeyboardEvent.h"
+#include "Scenes/OptionsScene.h"
 
 void Game::Run() {
+
+    // Load configs
+    GameData::SetScene(std::make_unique<OptionsScene>());
+    GameData::HandleSceneChange();
 
     GameData::SetScene(std::make_unique<MainMenuScene>());
     GameData::HandleSceneChange();

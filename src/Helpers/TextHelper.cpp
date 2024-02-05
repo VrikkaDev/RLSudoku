@@ -12,14 +12,28 @@ void DrawTextB(const char* text, int posX, int posY, int fontSize, Color color){
 
 void DrawTextBC(const char* text, int posX, int posY, int fontSize, int width, int height, Color color){
 
-    // Measure the text size using the specified font and size
-    Vector2 textSize = MeasureTextEx(Fonts::default_font, text, fontSize, 1);
+    // Split the text into lines
+    std::vector<std::string> lines = StringHelper::SplitString(text, '\n');
+
+    float maxLineWidth = 0.0f;
+    for (const auto& line : lines) {
+        Vector2 measuredLine = MeasureTextEx(Fonts::default_font, line.c_str(), fontSize, 1);
+        maxLineWidth = fmax(maxLineWidth, measuredLine.x);
+    }
+
+    // Calculate the total height of the text
+    float totalHeight = static_cast<float>(lines.size()) * (MeasureTextEx(Fonts::default_font, "A", fontSize, 1).y);
 
     // Calculate the position to center the text in the rectangle
-    int textX = posX + (width - textSize.x) / 2;
-    int textY = posY + (height - textSize.y) / 2;
+    int textX = posX + (width - maxLineWidth) / 2;
+    int textY = posY + (height - totalHeight) / 2;
 
-    DrawTextEx(Fonts::default_font, text, (Vector2){static_cast<float>(textX), static_cast<float>(textY) }, fontSize, 1, color);
+    // Draw each line of the text
+    float currentY = static_cast<float>(textY);
+    for (const auto& line : lines) {
+        DrawTextEx(Fonts::default_font, line.c_str(), (Vector2){static_cast<float>(textX), currentY}, fontSize, 1, color);
+        currentY += MeasureTextEx(Fonts::default_font, "A", fontSize, 1).y;
+    }
 }
 
 void DrawTextBCL(const char* text, int posX, int posY, int fontSize, int height, Color color){

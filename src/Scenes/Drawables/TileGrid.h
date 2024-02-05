@@ -7,11 +7,12 @@
 
 
 #include "Graphics/Drawable.h"
+#include "Storage/Saveable.h"
 
 class TileGrid : public Drawable{
 public:
     TileGrid();
-    explicit TileGrid(SudokuBoard* brd, SudokuBoard* solved, Rectangle rec);
+    explicit TileGrid(SudokuBoard* brd, SudokuBoard* orgBrd, SudokuBoard* solved, Rectangle rec);
     void Draw() override;
     void OnStart() override;
 
@@ -31,6 +32,7 @@ public:
 private:
     SudokuBoard* board;
     SudokuBoard* solvedBoard;
+    SudokuBoard* orgBoard;
 
     bool isPaused = false;
 };

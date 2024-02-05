@@ -7,24 +7,39 @@
 
 
 #include "Scene.h"
+#include "Storage/Saveable.h"
 
 class TileGrid;
+class GameSaveable;
 
 class GameScene : public Scene{
 public:
     GameScene();
     explicit GameScene(int difficulty);
+    explicit GameScene(bool load);
 
     void Setup() override;
 
-    SudokuBoard board;
-    SudokuBoard solvedBoard;
+    std::unique_ptr<SudokuBoard> board;
+    std::unique_ptr<SudokuBoard> orgBoard;
+    std::unique_ptr<SudokuBoard> solvedBoard;
 
-    // This isnt good to be here and can be removed, should be using the event system
+    // :(
     TileGrid* tileGrid;
+    GameSaveable* gs;
+    bool newGame = true; // if false then load game from json.
 
     // Difficulty 0-100
     int difficulty = 0;
+};
+
+class GameSaveable : public Saveable{
+public:
+    explicit GameSaveable(GameScene* scene);
+    GameScene* scene;
+
+    nlohmann::json GetJson() override;
+    void Load(const nlohmann::json& data) override;
 };
 
 

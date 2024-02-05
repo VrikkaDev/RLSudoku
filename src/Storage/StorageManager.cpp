@@ -4,6 +4,8 @@
 
 #include "StorageManager.h"
 #include "Saveable.h"
+#include "GameData.h"
+#include "Scenes/Scene.h"
 
 StorageManager::StorageManager() {
 }
@@ -22,7 +24,7 @@ void StorageManager::Save() {
     }
     RFile.close();
 
-    for (const std::unique_ptr<Saveable>& saveable : saveableStack.saveables){
+    for (const auto& saveable : GameData::currentScene->saveableStack.saveables){
         nlohmann::json sj = saveable->GetJson();
         root[saveable->save_token] = sj;
     }
@@ -50,7 +52,7 @@ void StorageManager::Load() {
     curr_json = root;
 
     // Load all saveables
-    for (const std::unique_ptr<Saveable>& saveable : saveableStack.saveables){
+    for (const auto& saveable : GameData::currentScene->saveableStack.saveables){
         saveable->Load(root[saveable->save_token]);
     }
 }

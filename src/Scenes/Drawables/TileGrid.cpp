@@ -14,7 +14,8 @@
 TileGrid::TileGrid() : Drawable(){
 }
 
-TileGrid::TileGrid(SudokuBoard* brd, SudokuBoard* solved, Rectangle rec) {
+TileGrid::TileGrid(SudokuBoard* brd, SudokuBoard* orgBrd, SudokuBoard* solved, Rectangle rec) : Drawable() {
+    orgBoard = orgBrd;
     board = brd;
     solvedBoard = solved;
     x = rec.x;
@@ -109,17 +110,28 @@ void TileGrid::OnStart() {
             float ow = (width/9), oh = (height/9);
             auto rec = Rectangle {(float)x + i * ow + xit, (float)y + j * oh + xjt, ow, oh};
 
-            auto val = board->at(t);
+            auto val = orgBoard->at(t);
             vstr = std::to_string(static_cast<int>(val->value));
 
             // If its 0 make it be nothing
             if(vstr == "0") vstr = "";
 
             auto* tb = new TileButton(t, vstr.c_str(), solvedBoard->at(t)->value, rec);
+
+            // Now do same with actual board
+            val = board->at(t);
+            vstr = std::to_string(static_cast<int>(val->value));
+
+
             tb->fontSize=ow/1.5;
             tb->parent = this;
-
             children.push_back(tb);
+
+            if(vstr != "0"){
+                tb->text = vstr;
+                SetTile(tb->tileNumber, stoi(vstr));
+            }
+
             t++;
         }
     }
@@ -213,4 +225,3 @@ void TileGrid::SetTile(int tilenumber, int value) {
     tileValues[tilenumber] = value;
     board->setValue(tilenumber, value);
 }
-

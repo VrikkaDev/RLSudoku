@@ -202,9 +202,10 @@ void SudokuBoard::display() {
 void SudokuBoard::setValue(coord pos, int value) {
     auto cell = cells.at(posToIndex(pos));
 
-    if (cell->getChange()) {
+
+    //if (cell->getChange()) {
         cell->value = value;
-    }
+    //}
 }
 void SudokuBoard::setValue(int index, int value) {
     int row = index / 9;
@@ -241,6 +242,7 @@ bool SudokuBoard::completed() {
 }
 
 bool SudokuBoard::checkSudoku(int index) {
+
     auto cell = cells.at(index);
 
     if (cell->value == 0) {
@@ -279,5 +281,6 @@ std::string SudokuBoard::parser() const {
 }
 
 bool SudokuBoard::operator==(const SudokuBoard& other) const{
+
     return parser() == other.parser();
 }

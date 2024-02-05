@@ -19,8 +19,8 @@ public:
     bool IsHovering(Vector2 mousePosition);
     void AddDrawable(Drawable* drawable);
     void RemoveDrawable(Drawable* drawable);
+    std::vector<Drawable*> drawables = {};
 private:
-    std::vector<Drawable*> m_Drawables = {};
 };
 
 

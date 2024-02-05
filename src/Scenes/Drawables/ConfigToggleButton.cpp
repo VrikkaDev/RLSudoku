@@ -66,7 +66,9 @@ nlohmann::json ConfigToggleButton::GetJson() {
 }
 
 void ConfigToggleButton::Load(const nlohmann::json& data) {
-    if(data.contains("value")){ // TODO add defaultvalues to saveables
+    if(data.contains("value")){
         value = data["value"];
+    }else{
+        value = defaultValue;
     }
 }

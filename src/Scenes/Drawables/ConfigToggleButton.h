@@ -31,6 +31,7 @@ public:
     int togglesymbolSegments = 20;
 
     bool value = false;
+    bool defaultValue = false;
 
     std::string tooltip;
     std::string text = "Button";

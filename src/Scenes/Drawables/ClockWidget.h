@@ -20,6 +20,11 @@ public:
     Color hoverColor = DARKGRAY;
     Color textColor = WHITE;
 
+    double GetCurrentTime(){
+        return currentTime;
+    }
+    void SetTime(double timedata);
+
     bool isFinished = false;
     bool paused = false;
 

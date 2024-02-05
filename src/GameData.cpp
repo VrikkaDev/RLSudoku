@@ -19,16 +19,16 @@ void GameData::SetScene(std::unique_ptr<Scene> scene) {
 
 void GameData::HandleSceneChange() {
     if(changeScene){
+
         // Save and clear saveables
         storageManager->Save();
-        storageManager->saveableStack.saveables.clear();
+        currentScene->saveableStack.Flush();
 
         currentScene.reset();
         currentScene = std::move(nextScene);
         currentScene->Setup();
 
         // Load saveables
-
         storageManager->Load();
 
         nextScene = nullptr;

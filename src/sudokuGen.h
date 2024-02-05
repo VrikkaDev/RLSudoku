@@ -46,17 +46,19 @@ public:
     void setValue(coord pos, int value);
     void setValue(int index, int value);
     bool win();
-    std::string parser() const;
+    [[nodiscard]] std::string parser() const;
     SudokuBoard();
     explicit SudokuBoard(const char* input);
+
     int difficulty;
 
     std::shared_ptr<Cell> at( int index );
     std::shared_ptr<Cell> at( coord pos );
     bool operator ==(const SudokuBoard& other) const;
+
+    bool checkSudoku( int index );
 private:
     bool genSudoku( int index );
-    bool checkSudoku( int index );
 };
 
 SudokuBoard genBoard(int difficulty);

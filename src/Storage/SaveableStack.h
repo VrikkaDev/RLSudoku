@@ -12,6 +12,8 @@ public:
     SaveableStack() = default;
 
     void AddSaveable(std::unique_ptr<Saveable> saveable);
+    void Flush();// Clear saveables
+
     std::vector<std::unique_ptr<Saveable>> saveables = {};
 };
 

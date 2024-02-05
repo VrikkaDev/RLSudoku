@@ -7,6 +7,7 @@
 
 
 #include "Graphics/DrawableStack.h"
+#include "Storage/SaveableStack.h"
 
 class Scene {
 public:
@@ -16,6 +17,7 @@ public:
     virtual void OnUpdate();
     std::shared_ptr<EventDispatcher> eventDispatcher;
     std::shared_ptr<DrawableStack> drawableStack;
+    SaveableStack saveableStack = SaveableStack();
 };
 
 

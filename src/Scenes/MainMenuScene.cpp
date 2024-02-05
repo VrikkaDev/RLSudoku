@@ -8,6 +8,8 @@
 #include "OptionsScene.h"
 #include "Scenes/Drawables/GenericDropdown.h"
 #include "GameScene.h"
+#include "Storage/StorageManager.h"
+#include "Helpers/TimeHelper.h"
 
 MainMenuScene::MainMenuScene() : Scene() {
 }
@@ -30,10 +32,12 @@ void MainMenuScene::Setup() {
     };
     drawableStack->AddDrawable(qb);
 
-
     // Difficulty dropdown
+
+    std::map<const char*, int> difficultyMap = {{"Easy", 20}, {"Medium", 40}, {"Hard", 50}, {"Very Hard", 60}};
+
     float dw = 200, dh = 50, dx = GetScreenWidth()/2 - dw/2 + 260, dy = GetScreenHeight()/2 - dh/2 - 70;
-    auto db = new GenericDropdown({{"Easy", 20}, {"Medium", 40}, {"Hard", 50}, {"Very Hard", 60}},
+    auto db = new GenericDropdown(difficultyMap,
                                   "menu_difficulty_dropdown", Rectangle{dx,dy,dw,dh});
     drawableStack->AddDrawable(db);
 
@@ -44,6 +48,26 @@ void MainMenuScene::Setup() {
         GameData::SetScene(std::make_unique<GameScene>(db->GetSelectedValue()));
     };
     drawableStack->AddDrawable(gb);
+
+    // Continue game button
+    nlohmann::json json = GameData::storageManager->GetData("game_save");
+    if(json.contains("difficulty")){
+        float cw = 260, ch = 100, cx = 5, cy = GetScreenHeight()/2 - ch/2 - 70;
+        int val = (int)json["difficulty"];
+        auto result = std::find_if(
+                difficultyMap.begin(),
+                difficultyMap.end(),
+                [val](const auto& mo) {return mo.second == val; });
+        std::string tim = TimeHelper::GetTimeFormatted((double)json["time"]);
+        std::string n = "Continue.\nDifficulty: " + std::string(result->first) + "\nTime: " + tim;
+        auto cb = new GenericButton(n.c_str(), Rectangle{cx,cy,cw,ch});
+        cb->fontSize = 30;
+        cb->OnClick = [](MouseEvent* event) {
+            GameData::SetScene(std::make_unique<GameScene>(true));
+        };
+        drawableStack->AddDrawable(cb);
+    }
+
 }
 
 MainMenuScene::~MainMenuScene() = default;

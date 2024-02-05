@@ -7,6 +7,7 @@
 #include "Storage/StorageManager.h"
 #include "Event/GameEvent.h"
 #include "Scenes/Scene.h"
+#include "Helpers/TimeHelper.h"
 
 ClockWidget::ClockWidget() : Drawable() {
 
@@ -17,21 +18,6 @@ ClockWidget::ClockWidget(Rectangle rec) {
     y = rec.y;
     width = rec.width;
     height = rec.height;
-}
-
-const char* getTimeFormatted(double currentTime){
-    std::chrono::seconds sec((int)currentTime);
-    // Convert seconds into hh:mm:ss
-    auto seconds = std::to_string(sec.count() % 60);
-    if(seconds.size() == 1) seconds = "0"+seconds;
-    auto minutes = std::to_string(std::chrono::duration_cast<std::chrono::minutes>(sec).count() % 60);
-    if(minutes.size() == 1) minutes = "0"+minutes;
-    auto hours = std::to_string(std::chrono::duration_cast<std::chrono::hours>(sec).count());
-    if(hours.size() == 1) hours = "0"+hours;
-
-    std::string tx = hours + ":" + minutes
-                     + ":" + seconds;
-    return std::move(tx).c_str();
 }
 
 void ClockWidget::OnStart() {
@@ -49,7 +35,7 @@ void ClockWidget::OnStart() {
                 // Send timedata event
 
                 // EventType 2 = timedata
-                auto* te = new GameEvent(2, getTimeFormatted(currentTime));
+                auto* te = new GameEvent(2, TimeHelper::GetTimeFormatted(currentTime));
                 GameData::currentScene->eventDispatcher->AddEvent(te);
             }else if(ge->EventType == 3){// EventType 3 == pause
                 if(ge->Data == "0"){
@@ -85,7 +71,7 @@ void ClockWidget::Draw() {
         currentTime = timeNow - startTime;
     }
 
-    std::string tx = getTimeFormatted(currentTime);
+    std::string tx = TimeHelper::GetTimeFormatted(currentTime);
 
     bool isHovering = CheckCollisionPointRec(GetMousePosition(), GetRectangle());
 
@@ -108,4 +94,8 @@ void ClockWidget::Draw() {
     }
 
     previousTime = timeNow;
+}
+
+void ClockWidget::SetTime(double timedata) {
+    startTime = GetTime() - timedata;
 }

@@ -131,7 +131,7 @@ void TileButton::DeSelect() {
 }
 
 void TileButton::SetText(const std::string& str) {
-    if (permanent) {
+    if (permanent || str.empty()) {
         return;
     }
 
