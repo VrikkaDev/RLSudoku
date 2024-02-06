@@ -16,6 +16,8 @@ public:
     virtual void Setup(){}
     virtual void OnUpdate();
     virtual void OnResize();
+
+    bool DidSetup = false;
     std::shared_ptr<EventDispatcher> eventDispatcher;
     std::shared_ptr<DrawableStack> drawableStack;
     SaveableStack saveableStack = SaveableStack();

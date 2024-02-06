@@ -160,7 +160,6 @@ void TileGrid::OnStart() {
                     // Only add if doesnt already have
                     auto nit = std::find(drdre->notes.begin(), drdre->notes.end(),stoi(astr));
                     if(nit == drdre->notes.end()){
-                        std::cout<<astr<<std::endl;
                         drdre->notes.push_back(stoi(astr));
                     }
                 }

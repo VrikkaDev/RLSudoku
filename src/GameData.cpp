@@ -26,7 +26,10 @@ void GameData::HandleSceneChange() {
 
         currentScene.reset();
         currentScene = std::move(nextScene);
-        currentScene->Setup();
+        if(!currentScene->DidSetup){
+            currentScene->Setup();
+        }
+        currentScene->DidSetup = true;
 
         // Load saveables
         storageManager->Load();

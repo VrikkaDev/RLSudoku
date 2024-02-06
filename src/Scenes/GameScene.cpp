@@ -18,17 +18,68 @@
 GameScene::GameScene() : Scene(){
 }
 
+std::string getRandomLine(const std::string& filename) {
+    std::string line;
+    std::string selected;
+    std::ifstream file(filename);
+
+    if (file.is_open()) {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<> dis(0, 1);
+
+        int n = 0;
+        while (std::getline(file, line)) {
+            ++n;
+            if (dis(gen) < 1.0 / n) {
+                selected = line;
+            }
+        }
+        file.close();
+    } else {
+        std::cerr << "Unable to open file: " << filename << std::endl;
+    }
+
+    return std::move(selected);
+}
+
 GameScene::GameScene(int difficulty) : Scene(){
     this->difficulty = difficulty;
 
-    board = std::make_unique<SudokuBoard>(genBoard(difficulty));
+    std::string final_solve;
+
+    // Define the number of threads you want to use
+    const int num_threads = 4;
+
+    // Create a vector to hold the threads
+    std::vector<std::thread> threads;
+
+
+    while (true) {
+        if(difficulty > 45){
+            if(difficulty == 50){
+                std::string st = getRandomLine("./assets/puzzles/hard.txt");
+                board = std::make_unique<SudokuBoard>(st.c_str());
+            }else if(difficulty == 60){
+                std::string st = getRandomLine("./assets/puzzles/hardest.txt");
+                board = std::make_unique<SudokuBoard>(st.c_str());
+            }
+        }else{
+            board = std::make_unique<SudokuBoard>(genBoard(difficulty));
+        }
+        std::string st = board->parser();
+        char solvstr[81];
+        int corcount = JCZSolver(st.c_str(), solvstr, 2);
+        if (corcount <= 1) {
+            final_solve = std::string(solvstr);
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+
     orgBoard = std::make_unique<SudokuBoard>(board->parser().c_str());
-
-    char solvstr[81];
-    std::string st = board->parser();
-    JCZSolver(st.c_str(), solvstr, 5);
-
-    solvedBoard = std::make_unique<SudokuBoard>(solvstr);
+    solvedBoard = std::make_unique<SudokuBoard>(final_solve.c_str());
 }
 
 GameScene::GameScene(bool load) {
@@ -38,7 +89,6 @@ GameScene::GameScene(bool load) {
 }
 
 void GameScene::Setup() {
-
 
     // Game Clock
     float cw = (GetScreenWidth() - (20 + GetScreenHeight() - 80 + 20))/2,
