@@ -7,12 +7,14 @@
 #include "Storage/StorageManager.h"
 #include "Storage/LeaderboardManager.h"
 #include "Storage/StatisticsManager.h"
+#include "Storage/RemoteSyncManager.h"
 
 std::unique_ptr<Scene> GameData::currentScene = std::make_unique<Scene>();
 std::unique_ptr<Scene> GameData::nextScene = nullptr;
 std::unique_ptr<StorageManager> GameData::storageManager = std::make_unique<StorageManager>();
 std::unique_ptr<LeaderboardManager> GameData::leaderboardManager = std::make_unique<LeaderboardManager>();
 std::unique_ptr<StatisticsManager> GameData::statisticsManager = std::make_unique<StatisticsManager>();
+std::unique_ptr<RemoteSyncManager> GameData::remoteSyncManager = std::make_unique<RemoteSyncManager>();
 bool GameData::isRunning = true;
 bool GameData::changeScene = false;
 

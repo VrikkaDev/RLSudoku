@@ -11,6 +11,7 @@ class Scene;
 class StorageManager;
 class LeaderboardManager;
 class StatisticsManager;
+class RemoteSyncManager;
 
 class GameData {
 public:
@@ -19,6 +20,7 @@ public:
     static std::unique_ptr<StorageManager> storageManager;
     static std::unique_ptr<LeaderboardManager> leaderboardManager;
     static std::unique_ptr<StatisticsManager> statisticsManager;
+    static std::unique_ptr<RemoteSyncManager> remoteSyncManager;
 
     // prob should use some sort of SceneManager instead of having these here
     static void SetScene(std::unique_ptr<Scene> scene);

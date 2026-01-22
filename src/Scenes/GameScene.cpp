@@ -14,6 +14,7 @@
 #include "Scenes/Drawables/TextWidget.h"
 #include "Storage/StorageManager.h"
 #include "Storage/StatisticsManager.h"
+#include "Storage/RemoteSyncManager.h"
 
 #include "JCZSolve.h"
 #include "Scenes/Drawables/WinScreen.h"
@@ -417,6 +418,10 @@ void GameScene::SubmitToLeaderboard() {
     
     GameData::leaderboardManager->AddEntry(entry);
 
+    if (GameData::remoteSyncManager) {
+        GameData::remoteSyncManager->QueueLeaderboardUpdate();
+    }
+
     if (GameData::statisticsManager) {
         GameData::statisticsManager->RecordGameCompleted(
             difficulty,
@@ -425,6 +430,10 @@ void GameScene::SubmitToLeaderboard() {
             usedAutoCheck,
             usedConflictHighlight
         );
+
+        if (GameData::remoteSyncManager) {
+            GameData::remoteSyncManager->QueueStatisticsUpdate();
+        }
     }
 }
 

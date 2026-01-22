@@ -4,6 +4,8 @@
 
 #include "StatisticsManager.h"
 #include "Helpers/TimeHelper.h"
+#include "GameData.h"
+#include "Storage/RemoteSyncManager.h"
 
 StatisticsManager::StatisticsManager() {
     Load();
@@ -86,6 +88,10 @@ void StatisticsManager::Save() const {
 
     file << root.dump(4);
     file.close();
+
+    if (GameData::remoteSyncManager) {
+        GameData::remoteSyncManager->QueueStatisticsUpdate();
+    }
 }
 
 void StatisticsManager::RecordGameStart(int difficulty) {

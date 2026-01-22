@@ -10,6 +10,7 @@
 #include "Event/KeyboardEvent.h"
 #include "Scenes/OptionsScene.h"
 #include "Storage/StatisticsManager.h"
+#include "Storage/RemoteSyncManager.h"
 
 void Game::Run() {
 
@@ -85,12 +86,19 @@ void Game::Run() {
         }
 
         GameData::HandleSceneChange();
+
+        if (GameData::remoteSyncManager) {
+            GameData::remoteSyncManager->Update();
+        }
     }
 
     // Save data
     GameData::storageManager->Save();
     if (GameData::statisticsManager) {
         GameData::statisticsManager->Save();
+    }
+    if (GameData::remoteSyncManager) {
+        GameData::remoteSyncManager->OnExit();
     }
 
 }

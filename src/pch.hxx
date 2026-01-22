@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <thread>
 #include <future>
+#include <chrono>
 #include <typeindex>
 #include <random>
 

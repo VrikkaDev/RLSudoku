@@ -23,6 +23,12 @@ add_executable(rlsudoku ${src_files})
 
 target_precompile_headers(rlsudoku PRIVATE src/pch.cxx src/pch.hxx)
 target_link_libraries(rlsudoku PUBLIC raylib jczsolve nlohmann_json::nlohmann_json -static-libgcc -static-libstdc++)
+if (WIN32)
+        target_link_libraries(rlsudoku PUBLIC winhttp)
+else()
+        find_package(CURL REQUIRED)
+        target_link_libraries(rlsudoku PUBLIC CURL::libcurl)
+endif()
 target_include_directories(rlsudoku PUBLIC "vendor" PUBLIC "src")
 set_target_properties(rlsudoku PROPERTIES LINKER_LANGUAGE CXX)
 
