@@ -3,6 +3,8 @@
 //
 
 #include "ConfigToggleButton.h"
+#include "GameData.h"
+#include "Storage/StorageManager.h"
 
 ConfigToggleButton::ConfigToggleButton(const char* save_token) : Drawable(), Saveable(save_token) {
 
@@ -14,12 +16,18 @@ ConfigToggleButton::ConfigToggleButton(const char* save_token, const char* txt, 
     y = rec.y;
     width = rec.width;
     height = rec.height;
+    
+    // Set default OnClick - can be overridden after construction
+    OnClick = [this](MouseEvent* event){
+        value = !value;
+        GameData::storageManager->Save();
+    };
 }
 
 void ConfigToggleButton::OnStart() {
-    OnClick = [this](MouseEvent* event){
-        value = !value;
-    };
+    // OnStart is called after the button is added to the drawable stack
+    // At this point, if a custom OnClick was set, it's already there
+    // We don't need to do anything here anymore
 }
 
 void ConfigToggleButton::Draw() {

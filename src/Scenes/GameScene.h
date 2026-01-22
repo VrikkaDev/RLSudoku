@@ -8,6 +8,10 @@
 
 #include "Scene.h"
 #include "Storage/Saveable.h"
+#include "Storage/LeaderboardManager.h"
+#include <vector>
+#include <string>
+#include <map>
 
 class TileGrid;
 class GameSaveable;
@@ -15,6 +19,7 @@ class GameSaveable;
 class GameScene : public Scene{
 public:
     GameScene();
+    GameScene(const std::string& initialBoardStr, const std::string& solutionBoardStr, int difficulty, bool practiceMode);
     explicit GameScene(int difficulty);
     explicit GameScene(bool load);
 
@@ -25,14 +30,35 @@ public:
     std::unique_ptr<SudokuBoard> orgBoard;
     std::unique_ptr<SudokuBoard> solvedBoard;
     std::map<int, std::string> startNotes = {};
+    std::map<int, std::vector<int>> startAutoCandidateRemoved = {};
 
     // :(
     TileGrid* tileGrid;
-    GameSaveable* gs;
     bool newGame = true; // if false then load game from json.
 
     // Difficulty 0-100
     int difficulty = 0;
+    
+    // Leaderboard tracking
+    std::vector<MoveRecord> moveHistory;
+    double puzzleStartTime = 0;
+    std::time_t puzzleStartRealTime = 0;  // Real-world timestamp when puzzle started
+    bool usedAutoCandidates = false;
+    bool usedAutoCheck = false;
+    bool usedConflictHighlight = false;
+    bool isPracticeRun = false;
+    bool usePresetBoard = false;
+    std::string presetInitialBoard;
+    std::string presetSolutionBoard;
+    
+    void RecordMove(int tileNumber, int value, double timestamp);
+    void RecordCandidateChange(int tileNumber, MoveAction action, double timestamp);
+    void SubmitToLeaderboard();
+
+private:
+    void RecordGameStartStats();
+    void InitializeFromPreset();
+    GameSaveable* gs = nullptr;
 };
 
 class GameSaveable : public Saveable{

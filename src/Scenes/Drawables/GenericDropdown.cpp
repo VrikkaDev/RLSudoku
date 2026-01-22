@@ -36,6 +36,9 @@ void GenericDropdown::OnStart() {
                 auto* gb = new GenericButton(it->first, r);
                 gb->parent = this;
                 gb->fontSize = fontSize;
+                gb->color = GRAY;
+                gb->hoverColor = DARKGRAY;
+                gb->pressColor = LIGHTGRAY;
                 gb->OnClick = [gb, i](MouseEvent* event){
                     if (auto* gd = dynamic_cast<GenericDropdown*>(gb->parent)){
                         gd->selectedText = i-1;

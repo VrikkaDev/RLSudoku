@@ -6,6 +6,11 @@
 #include "TileGrid.h"
 #include "GameData.h"
 #include "Storage/StorageManager.h"
+#include "Storage/StatisticsManager.h"
+#include "Scenes/GameScene.h"
+#include "Storage/LeaderboardManager.h"
+#include <set>
+#include <algorithm>
 
 TileButton::TileButton() : Drawable() {
 
@@ -65,13 +70,40 @@ void TileButton::Draw() {
                 auto trec = Rectangle {(float)x + j * width/3, (float)y + i * height/3, (float)fontSize/2, (float)fontSize/2};
                 bool isHoveringTrec = CheckCollisionPointRec(GetMousePosition(), trec);
 
-                // Check if lmb pressed and toggle not if so
+                // Check if lmb pressed and toggle note if so
                 if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && isHoveringTrec){
-                    auto it = std::find(notes.begin(), notes.end(), t);
-                    if (it != notes.end()){
-                        notes.erase(it);
-                    } else{
-                        notes.push_back(t);
+                    nlohmann::json autoCandidatesEnabled = GameData::storageManager->GetData("options_toggle_autocandidates");
+                    bool showAutoCandidates = autoCandidatesEnabled.contains("value") && autoCandidatesEnabled["value"];
+                    if (replayOverrideMode) {
+                        showAutoCandidates = replayAutoMode;
+                    }
+
+                    if (showAutoCandidates) {
+                        // Auto candidates mode - toggle manually removed candidates
+                        auto it = std::find(manuallyRemovedCandidates.begin(), manuallyRemovedCandidates.end(), t);
+                        if (it != manuallyRemovedCandidates.end()) {
+                            // Was removed, bring it back
+                            manuallyRemovedCandidates.erase(it);
+                        } else {
+                            // Add to removed list
+                            manuallyRemovedCandidates.push_back(t);
+                        }
+                        // Recalculate auto candidates
+                        calculateAutoCandidates();
+                        
+                    } else {
+                        // Manual notes mode
+                        auto it = std::find(notes.begin(), notes.end(), t);
+                        if (it != notes.end()){
+                            notes.erase(it);
+                        } else{
+                            notes.push_back(t);
+                        }
+                    }
+
+                    if (auto* tg = dynamic_cast<TileGrid*>(parent)) {
+                        MoveAction action = showAutoCandidates ? MoveAction::ManualCandidates : MoveAction::Notes;
+                        tg->RecordCandidateChange(tileNumber, action);
                     }
                 }
 
@@ -84,7 +116,26 @@ void TileButton::Draw() {
 
                 auto col = textColor;
 
-                bool alr = std::find(notes.begin(), notes.end(), t) != notes.end();
+                nlohmann::json autoCandidatesEnabled = GameData::storageManager->GetData("options_toggle_autocandidates");
+                bool showAutoCandidates = autoCandidatesEnabled.contains("value") && autoCandidatesEnabled["value"];
+                if (replayOverrideMode) {
+                    showAutoCandidates = replayAutoMode;
+                }
+                
+                bool alr = false;
+                if (showAutoCandidates) {
+                    // Auto candidates mode - show if it's an auto candidate and not manually removed
+                    bool isAutoCandidate = std::find(autoCandidates.begin(), autoCandidates.end(), t) != autoCandidates.end();
+                    bool isManuallyRemoved = std::find(manuallyRemovedCandidates.begin(), manuallyRemovedCandidates.end(), t) != manuallyRemovedCandidates.end();
+                    alr = isAutoCandidate && !isManuallyRemoved;
+                    if (alr) {
+                        // Make auto candidates slightly more transparent
+                        col.a = (unsigned char)(col.a * 0.7f);
+                    }
+                } else {
+                    // Manual notes mode
+                    alr = std::find(notes.begin(), notes.end(), t) != notes.end();
+                }
 
                 // Draw with 255 alpha if in notes already
                 col.a = alr ? 255.f : alpha;
@@ -99,21 +150,44 @@ void TileButton::Draw() {
     if (!text.empty() && text != "-1"){
         Color color1 = showIsWrong ? wrongNumColor : selected ? textColor : permanent ? textColor3 : textColor2;
         DrawTextBC(text.c_str(), x, y, fontSize*1.25, width, height, color1);
-    }else { // Else draw the notes
+    }else { // Else draw the notes or auto candidates
+        nlohmann::json autoCandidatesEnabled = GameData::storageManager->GetData("options_toggle_autocandidates");
+        bool showAutoCandidates = autoCandidatesEnabled.contains("value") && autoCandidatesEnabled["value"];
+        if (replayOverrideMode) {
+            showAutoCandidates = replayAutoMode;
+        }
+        
         int t = 1;
         // Draw small numbers inside
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
-                auto it = std::find(notes.begin(), notes.end(), t);
-                if (it == notes.end()) {
+                bool shouldShow = false;
+                Color candidateColor = selected ? textColor : textColor2;
+                
+                // Check if this number should be shown
+                if (showAutoCandidates) {
+                    // Auto candidates mode - show auto candidates that aren't manually removed
+                    bool isAutoCandidate = std::find(autoCandidates.begin(), autoCandidates.end(), t) != autoCandidates.end();
+                    bool isManuallyRemoved = std::find(manuallyRemovedCandidates.begin(), manuallyRemovedCandidates.end(), t) != manuallyRemovedCandidates.end();
+                    shouldShow = isAutoCandidate && !isManuallyRemoved;
+                    // Make auto candidates slightly more transparent
+                    candidateColor.a = (unsigned char)(candidateColor.a * 0.7f);
+                } else {
+                    // Manual notes mode - show only manual notes
+                    shouldShow = std::find(notes.begin(), notes.end(), t) != notes.end();
+                }
+                
+                if (!shouldShow) {
                     t++;
                     continue;
                 }
+                
                 auto trec = Rectangle{(float) x + j * width / 3, (float) y + i * height / 3, (float) fontSize / 2,
                                       (float) fontSize / 2};
                 std::string st = std::to_string(t);
+                
                 DrawTextBC(st.c_str(), trec.x, trec.y,
-                           fontSize / 2, fontSize / 2, fontSize / 2, selected ? textColor : textColor2);
+                           fontSize / 2, fontSize / 2, fontSize / 2, candidateColor);
                 t++;
             }
         }
@@ -131,21 +205,57 @@ void TileButton::DeSelect() {
 }
 
 void TileButton::SetText(const std::string& str) {
-    if (permanent || str.empty()) {
+    if (permanent) {
         return;
     }
 
+    if (str == text) {
+        return;
+    }
+
+    bool hadValueBefore = (!text.empty() && text != "-1");
+
     nlohmann::json j = GameData::storageManager->GetData("options_toggle_autocheck");
 
+    int numericValue = 0;
+    try {
+        numericValue = std::stoi(str);
+    } catch (...) {
+        numericValue = 0;
+    }
+
+    bool isPlacement = numericValue > 0;
+
+    auto* gsScene = dynamic_cast<GameScene*>(GameData::currentScene.get());
+    bool allowStats = gsScene && !gsScene->isPracticeRun;
+    int difficulty = gsScene ? gsScene->difficulty : 0;
+
+    if (allowStats && GameData::statisticsManager) {
+        if (isPlacement) {
+            GameData::statisticsManager->RecordNumberPlaced(difficulty);
+        } else {
+            GameData::statisticsManager->RecordNumberCleared(difficulty, hadValueBefore);
+        }
+    }
+
     if(auto* tg = dynamic_cast<TileGrid*>(parent)){
-        tg->SetTile(tileNumber, stoi(str));
+        tg->SetTile(tileNumber, numericValue);
         tg->CheckIfFinished();
+        
+        // Record move for leaderboard
+        tg->RecordTileChange(tileNumber, std::max(0, numericValue));
+    }
+
+    if (allowStats && isPlacement && numericValue != correctNum) {
+        if (GameData::statisticsManager) {
+            GameData::statisticsManager->RecordMistake();
+        }
     }
 
 
     // AutoCheck
-    if (j.contains("value") && j["value"]) {
-        int si = stoi(str);
+    if (isPlacement && j.contains("value") && j["value"]) {
+        int si = numericValue;
         if (si != correctNum) {
             showIsWrong = true;
             text = str;
@@ -156,7 +266,24 @@ void TileButton::SetText(const std::string& str) {
 
     showIsWrong = false;
     text = str;
+    
+    // Clear manually removed candidates when placing a number
+    if (isPlacement) {
+        manuallyRemovedCandidates.clear();
+        notes.clear(); // Also clear manual notes when placing a number
+        
+        // Remove this number from manual candidates in related tiles
+        if(auto* tg = dynamic_cast<TileGrid*>(parent)){
+            tg->RemoveCandidatesFromRelatedTiles(tileNumber, numericValue);
+        }
+    }
+    
     CheckForConflicts();
+    
+    // Update auto candidates for all tiles when this tile's value changes
+    if(auto* tg = dynamic_cast<TileGrid*>(parent)){
+        tg->UpdateAllAutoCandidates();
+    }
 }
 
 void TileButton::CheckForConflicts() {
@@ -235,5 +362,94 @@ void TileButton::addConflict(int tile) {
     }else{
         showConflicts = j2["value"];
     }
+}
+
+void TileButton::calculateAutoCandidates() {
+    autoCandidates.clear();
+    
+    // Don't calculate for permanent tiles or tiles with values
+    if (permanent || (!text.empty() && text != "-1")) {
+        return;
+    }
+    
+    // Safety check - make sure parent is valid and has children
+    if (!parent || parent->children.empty()) {
+        return;
+    }
+    
+    int targetRow = tileNumber / 9;
+    int targetColumn = tileNumber % 9;
+    
+    auto childs = parent->children;
+    std::set<int> usedNumbers;
+    
+    // Check row for used numbers
+    for (int i = targetRow * 9; i < (targetRow + 1) * 9; ++i) {
+        if (i >= 0 && i < static_cast<int>(childs.size())) {
+            if (auto* tb = dynamic_cast<TileButton*>(childs[i])) {
+                if (!tb->text.empty() && tb->text != "-1") {
+                    try {
+                        usedNumbers.insert(std::stoi(tb->text));
+                    } catch (...) {}
+                }
+            }
+        }
+    }
+    
+    // Check column for used numbers
+    for (int i = targetColumn; i < 81; i += 9) {
+        if (i >= 0 && i < static_cast<int>(childs.size())) {
+            if (auto* tb = dynamic_cast<TileButton*>(childs[i])) {
+                if (!tb->text.empty() && tb->text != "-1") {
+                    try {
+                        usedNumbers.insert(std::stoi(tb->text));
+                    } catch (...) {}
+                }
+            }
+        }
+    }
+    
+    // Check 3x3 square for used numbers
+    int squareStartRow = (targetRow / 3) * 3;
+    int squareStartColumn = (targetColumn / 3) * 3;
+    for (int row = squareStartRow; row < squareStartRow + 3; ++row) {
+        for (int col = squareStartColumn; col < squareStartColumn + 3; ++col) {
+            int index = row * 9 + col;
+            if (index >= 0 && index < static_cast<int>(childs.size())) {
+                if (auto* tb = dynamic_cast<TileButton*>(childs[index])) {
+                    if (!tb->text.empty() && tb->text != "-1") {
+                        try {
+                            usedNumbers.insert(std::stoi(tb->text));
+                        } catch (...) {}
+                    }
+                }
+            }
+        }
+    }
+    
+    // Add all numbers 1-9 that aren't used and weren't manually removed
+    for (int i = 1; i <= 9; ++i) {
+        if (usedNumbers.find(i) == usedNumbers.end()) {
+            // Check if this candidate was manually removed
+            if (std::find(manuallyRemovedCandidates.begin(), manuallyRemovedCandidates.end(), i) == manuallyRemovedCandidates.end()) {
+                autoCandidates.push_back(i);
+            }
+        }
+    }
+}
+
+std::vector<int> TileButton::getAutoCandidates() {
+    return autoCandidates;
+}
+
+void TileButton::updateAutoCandidateDisplay() {
+    // This method can be called when the auto candidate setting is toggled
+    // to force a recalculation and redraw
+    calculateAutoCandidates();
+}
+
+void TileButton::SetReplayMode(bool overrideEnabled, bool autoMode) {
+    replayOverrideMode = overrideEnabled;
+    replayAutoMode = autoMode;
 }
 

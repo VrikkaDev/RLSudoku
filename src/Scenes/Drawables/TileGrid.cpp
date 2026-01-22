@@ -8,13 +8,28 @@
 #include "Helpers/KeyHelper.h"
 #include "GameData.h"
 #include "Storage/StorageManager.h"
+#include "Scenes/GameScene.h"
+#include "ClockWidget.h"
 #include "Event/GameEvent.h"
 #include "Scenes/Scene.h"
+#include <algorithm>
+
+namespace {
+std::vector<int> ValuesFromMask(uint16_t mask) {
+    std::vector<int> values;
+    for (int i = 0; i < 9; ++i) {
+        if (mask & (1u << i)) {
+            values.push_back(i + 1);
+        }
+    }
+    return values;
+}
+}
 
 TileGrid::TileGrid() : Drawable(){
 }
 
-TileGrid::TileGrid(SudokuBoard* brd, SudokuBoard* orgBrd, SudokuBoard* solved, std::map<int, std::string> sn, Rectangle rec) : Drawable() {
+TileGrid::TileGrid(SudokuBoard* brd, SudokuBoard* orgBrd, SudokuBoard* solved, std::map<int, std::string> sn, std::map<int, std::vector<int>> sacr, Rectangle rec) : Drawable() {
     orgBoard = orgBrd;
     board = brd;
     solvedBoard = solved;
@@ -22,6 +37,7 @@ TileGrid::TileGrid(SudokuBoard* brd, SudokuBoard* orgBrd, SudokuBoard* solved, s
     y = rec.y;
 
     startNotes = sn;
+    startAutoCandidateRemoved = sacr;
     int h = rec.height; // Make sure size is multiple of 9 for consistency
     int remainder = h % 9;
     if (remainder != 0) {
@@ -166,6 +182,22 @@ void TileGrid::OnStart() {
             }
         }
     }
+    
+    // Apply auto candidate removed data
+    for (Drawable* ch : children) {
+        if(auto* drdre = dynamic_cast<TileButton*>(ch)){
+            auto it = startAutoCandidateRemoved.find(drdre->tileNumber);
+            if(it != startAutoCandidateRemoved.end()){
+                drdre->manuallyRemovedCandidates = it->second;
+                // Recalculate auto candidates with the loaded removed candidates
+                drdre->calculateAutoCandidates();
+            }
+        }
+    }
+    
+    // Initialize auto candidates for all tiles after everything is set up
+    // Use a small delay to ensure all TileButtons are properly initialized
+    UpdateAllAutoCandidates();
 }
 
 void TileGrid::Draw() {
@@ -240,6 +272,25 @@ void TileGrid::CheckIfFinished() {
         // Event type 1 = win game event and no data needed
         auto* e = new GameEvent(1, "");
         GameData::currentScene->eventDispatcher->AddEvent(e);
+        
+        // Submit to leaderboard
+        if(auto* gs = dynamic_cast<GameScene*>(GameData::currentScene.get())){
+            gs->SubmitToLeaderboard();
+        }
+    }
+}
+
+void TileGrid::RecordTileChange(int tileNumber, int value) {
+    if(auto* gs = dynamic_cast<GameScene*>(GameData::currentScene.get())){
+        // Get current time from clock widget
+        double currentTime = 0;
+        for(const auto& dr : gs->drawableStack->drawables){
+            if(auto* cw = dynamic_cast<ClockWidget*>(dr)){
+                currentTime = cw->GetCurrentTime();
+                break;
+            }
+        }
+        gs->RecordMove(tileNumber, value, currentTime);
     }
 }
 
@@ -249,4 +300,168 @@ void TileGrid::SetTile(int tilenumber, int value) {
 
     tileValues[tilenumber] = value;
     board->setValue(tilenumber, value);
+    
+    // Only update auto candidates if all tiles are initialized (check if we have 81 children)
+    if (children.size() == 81) {
+        UpdateAllAutoCandidates();
+    }
 }
+
+void TileGrid::UpdateAllAutoCandidates() {
+    // Update auto candidates for all tiles
+    for (auto* child : children) {
+        if (child && dynamic_cast<TileButton*>(child)) {
+            if (auto* tb = dynamic_cast<TileButton*>(child)) {
+                tb->calculateAutoCandidates();
+            }
+        }
+    }
+}
+
+void TileGrid::RemoveCandidatesFromRelatedTiles(int tileNumber, int value) {
+    // Check if auto-remove candidates option is enabled
+    nlohmann::json autoRemoveEnabled = GameData::storageManager->GetData("options_toggle_autoremovecandidates");
+    if (!autoRemoveEnabled.contains("value") || !autoRemoveEnabled["value"]) {
+        return; // Feature disabled
+    }
+    
+    int targetRow = tileNumber / 9;
+    int targetCol = tileNumber % 9;
+    int targetBox = (targetRow / 3) * 3 + (targetCol / 3);
+    
+    // Remove the candidate from all related tiles
+    for (auto* child : children) {
+        if (auto* tb = dynamic_cast<TileButton*>(child)) {
+            if (tb->tileNumber == tileNumber) continue; // Skip the tile we just filled
+            
+            int otherRow = tb->tileNumber / 9;
+            int otherCol = tb->tileNumber % 9;
+            int otherBox = (otherRow / 3) * 3 + (otherCol / 3);
+            
+            // Check if in same row, column, or box
+            bool isRelated = (otherRow == targetRow) || 
+                           (otherCol == targetCol) || 
+                           (otherBox == targetBox);
+            
+            if (isRelated) {
+                // Remove the value from manual notes if it exists
+                auto it = std::find(tb->notes.begin(), tb->notes.end(), value);
+                if (it != tb->notes.end()) {
+                    tb->notes.erase(it);
+                }
+            }
+        }
+    }
+}
+
+void TileGrid::ClearSelection() {
+    selectedTile = -1;
+    for (auto* child : children) {
+        if (auto* tb = dynamic_cast<TileButton*>(child)) {
+            tb->selected = false;
+            tb->inGridLine = false;
+        }
+    }
+}
+
+void TileGrid::ResetToInitialBoard() {
+    if (!board || !orgBoard) {
+        return;
+    }
+
+    ClearSelection();
+
+    for (auto* child : children) {
+        if (auto* tb = dynamic_cast<TileButton*>(child)) {
+            int original = static_cast<int>(orgBoard->at(tb->tileNumber)->value);
+            if (original > 0) {
+                tb->text = std::to_string(original);
+            } else {
+                tb->text.clear();
+            }
+
+            tb->showIsWrong = false;
+            tb->showConflicts = false;
+            tb->conflicts.clear();
+            tb->notes.clear();
+            tb->autoCandidates.clear();
+            tb->manuallyRemovedCandidates.clear();
+            tb->SetReplayMode(false, false);
+
+            int stored = original > 0 ? original : 0;
+            tileValues[tb->tileNumber] = stored;
+            board->setValue(tb->tileNumber, stored);
+        }
+    }
+
+    UpdateAllAutoCandidates();
+}
+
+void TileGrid::ApplyReplayValue(int tileNumber, int value) {
+    if (!board) {
+        return;
+    }
+
+    if (tileNumber < 0 || tileNumber >= static_cast<int>(children.size())) {
+        return;
+    }
+
+    value = std::clamp(value, 0, 9);
+
+    if (auto* tb = dynamic_cast<TileButton*>(children[tileNumber])) {
+        if (tb->permanent) {
+            return;
+        }
+
+        tb->text = value > 0 ? std::to_string(value) : "";
+        tb->showIsWrong = false;
+        tb->showConflicts = false;
+        tb->conflicts.clear();
+        tb->notes.clear();
+        tb->manuallyRemovedCandidates.clear();
+    }
+
+    tileValues[tileNumber] = value;
+    board->setValue(tileNumber, value);
+}
+
+void TileGrid::RecordCandidateChange(int tileNumber, MoveAction action) {
+    if (auto* gs = dynamic_cast<GameScene*>(GameData::currentScene.get())) {
+        double currentTime = 0.0;
+        for (const auto& dr : gs->drawableStack->drawables) {
+            if (auto* cw = dynamic_cast<ClockWidget*>(dr)) {
+                currentTime = cw->GetCurrentTime();
+                break;
+            }
+        }
+        gs->RecordCandidateChange(tileNumber, action, currentTime);
+    }
+}
+
+void TileGrid::ApplyReplayCandidateState(const MoveRecord& move) {
+    int tileNumber = move.tileNumber;
+    if (tileNumber < 0 || tileNumber >= static_cast<int>(children.size())) {
+        return;
+    }
+
+    if (auto* tb = dynamic_cast<TileButton*>(children[tileNumber])) {
+        tb->SetReplayMode(true, move.autoCandidatesEnabled);
+
+        if (move.autoCandidatesEnabled) {
+            tb->notes.clear();
+            tb->manuallyRemovedCandidates = ValuesFromMask(move.removedMask);
+        } else {
+            tb->manuallyRemovedCandidates.clear();
+            tb->notes = ValuesFromMask(move.notesMask);
+        }
+    }
+}
+
+void TileGrid::SetReplayAutoModeForAll(bool autoMode) {
+    for (auto* child : children) {
+        if (auto* tb = dynamic_cast<TileButton*>(child)) {
+            tb->SetReplayMode(true, autoMode);
+        }
+    }
+}
+

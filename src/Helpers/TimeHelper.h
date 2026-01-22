@@ -5,10 +5,11 @@
 #ifndef RLSUDOKU_TIMEHELPER_H
 #define RLSUDOKU_TIMEHELPER_H
 
+#include <string>
 
 class TimeHelper {
 public:
-    static const char* GetTimeFormatted(double time);
+    static std::string GetTimeFormatted(double time, bool showMilliseconds = false, bool forceHours = false);
 };
 
 

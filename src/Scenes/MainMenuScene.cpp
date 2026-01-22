@@ -6,10 +6,12 @@
 #include "Scenes/Drawables/GenericButton.h"
 #include "GameData.h"
 #include "OptionsScene.h"
+#include "LeaderboardScene.h"
 #include "Scenes/Drawables/GenericDropdown.h"
 #include "GameScene.h"
 #include "Storage/StorageManager.h"
 #include "Helpers/TimeHelper.h"
+#include "StatisticsScene.h"
 
 MainMenuScene::MainMenuScene() : Scene() {
 }
@@ -24,8 +26,24 @@ void MainMenuScene::Setup() {
     };
     drawableStack->AddDrawable(ob);
 
+    // Leaderboard button
+    float lw = 280, lh = 50, lx = GetScreenWidth()/2 - lw/2, ly = oy + oh + 10;
+    auto lb = new GenericButton("Leaderboards", Rectangle{lx,ly,lw,lh});
+    lb->OnClick = [](MouseEvent* event) {
+        GameData::SetScene(std::make_unique<LeaderboardScene>());
+    };
+    drawableStack->AddDrawable(lb);
+
+    // Statistics button
+    float sw = 240, sh = 50, sx = GetScreenWidth()/2 - sw/2, sy = ly + lh + 10;
+    auto sb = new GenericButton("Statistics", Rectangle{sx,sy,sw,sh});
+    sb->OnClick = [](MouseEvent* event) {
+        GameData::SetScene(std::make_unique<StatisticsScene>());
+    };
+    drawableStack->AddDrawable(sb);
+
     // Quit button
-    float qw = 190, qh = 50, qx = GetScreenWidth()/2 - qw/2, qy = GetScreenHeight()/2 - qh/2 + 70;
+    float qw = 190, qh = 50, qx = GetScreenWidth()/2 - qw/2, qy = sy + sh + 10;
     auto qb = new GenericButton("Quit", Rectangle{qx,qy,qw,qh});
     qb->OnClick = [](MouseEvent* event) {
         GameData::isRunning = false;

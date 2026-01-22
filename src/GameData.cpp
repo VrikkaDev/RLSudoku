@@ -5,10 +5,14 @@
 #include "GameData.h"
 #include "Scenes/Scene.h"
 #include "Storage/StorageManager.h"
+#include "Storage/LeaderboardManager.h"
+#include "Storage/StatisticsManager.h"
 
 std::unique_ptr<Scene> GameData::currentScene = std::make_unique<Scene>();
 std::unique_ptr<Scene> GameData::nextScene = nullptr;
 std::unique_ptr<StorageManager> GameData::storageManager = std::make_unique<StorageManager>();
+std::unique_ptr<LeaderboardManager> GameData::leaderboardManager = std::make_unique<LeaderboardManager>();
+std::unique_ptr<StatisticsManager> GameData::statisticsManager = std::make_unique<StatisticsManager>();
 bool GameData::isRunning = true;
 bool GameData::changeScene = false;
 

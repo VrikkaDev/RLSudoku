@@ -7,6 +7,7 @@
 
 
 #include "Graphics/Drawable.h"
+#include "Storage/Saveable.h"
 
 class TileButton : public Drawable{
 public:
@@ -44,9 +45,19 @@ public:
 
     void addConflict(int tile);
     void removeConflict(int tile);
+    void calculateAutoCandidates();
+    std::vector<int> getAutoCandidates();
+    void updateAutoCandidateDisplay();
+    void SetReplayMode(bool overrideEnabled, bool autoMode);
+    
     std::vector<int> conflicts = {};
     std::vector<int> notes = {};
+    std::vector<int> autoCandidates = {};
+    std::vector<int> manuallyRemovedCandidates = {};
     std::string text;
+
+    bool replayOverrideMode = false;
+    bool replayAutoMode = false;
 };
 
 

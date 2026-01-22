@@ -9,6 +9,7 @@
 #include "Storage/StorageManager.h"
 #include "Event/KeyboardEvent.h"
 #include "Scenes/OptionsScene.h"
+#include "Storage/StatisticsManager.h"
 
 void Game::Run() {
 
@@ -88,5 +89,8 @@ void Game::Run() {
 
     // Save data
     GameData::storageManager->Save();
+    if (GameData::statisticsManager) {
+        GameData::statisticsManager->Save();
+    }
 
 }

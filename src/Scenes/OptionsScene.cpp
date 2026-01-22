@@ -62,6 +62,22 @@ void OptionsScene::Setup() {
     hllb->fontSize = 20;
     drawableStack->AddDrawable(hllb);
 
+    // Auto Candidates option togglebutton
+    float aclw = 220, aclh = 50, aclx = 20, acly = GetScreenHeight() - aclh*9;
+    auto aclb = new ConfigToggleButton("options_toggle_autocandidates", "Auto Candidates", Rectangle{aclx, acly, aclw, aclh});
+    aclb->tooltip = "Automatically shows possible candidate numbers \nfor each empty cell based on Sudoku rules.";
+    aclb->fontSize = 20;
+    drawableStack->AddDrawable(aclb);
+
+
+    
+    // Auto Remove Candidates option togglebutton
+    float arclw = 280, arclh = 50, arclx = 350, arcly = GetScreenHeight() - arclh*4;
+    auto arclb = new ConfigToggleButton("options_toggle_autoremovecandidates", "Auto Remove Candidates", Rectangle{arclx, arcly, arclw, arclh});
+    arclb->tooltip = "Automatically removes manual candidates from \nrelated tiles when you place a number.";
+    arclb->fontSize = 20;
+    drawableStack->AddDrawable(arclb);
+
 }
 
 void OptionsScene::OnResize() {
