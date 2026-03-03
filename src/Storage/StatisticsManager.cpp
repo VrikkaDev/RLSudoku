@@ -19,6 +19,7 @@ nlohmann::json StatisticsManager::ExportJson() const {
     root["totalGamesStarted"] = stats.totalGamesStarted;
     root["totalGamesCompleted"] = stats.totalGamesCompleted;
     root["totalTimeSeconds"] = stats.totalTimeSeconds;
+    root["totalAppTimeSeconds"] = stats.totalAppTimeSeconds;
     root["totalMistakes"] = stats.totalMistakes;
     root["totalNumbersPlaced"] = stats.totalNumbersPlaced;
     root["totalNumbersCleared"] = stats.totalNumbersCleared;
@@ -51,6 +52,7 @@ bool StatisticsManager::ImportJson(const nlohmann::json& root) {
         imported.totalGamesStarted = root.value("totalGamesStarted", 0);
         imported.totalGamesCompleted = root.value("totalGamesCompleted", 0);
         imported.totalTimeSeconds = root.value("totalTimeSeconds", 0.0);
+        imported.totalAppTimeSeconds = root.value("totalAppTimeSeconds", 0.0);
         imported.totalMistakes = root.value("totalMistakes", 0);
         imported.totalNumbersPlaced = root.value("totalNumbersPlaced", 0);
         imported.totalNumbersCleared = root.value("totalNumbersCleared", 0);
@@ -153,6 +155,13 @@ void StatisticsManager::RecordNumberCleared(int difficulty, bool hadValueBefore)
     int index = DifficultyToIndex(difficulty);
     stats.difficulties[index].numbersCleared++;
     Save();
+}
+
+void StatisticsManager::RecordAppActiveTime(double deltaSeconds) {
+    if (deltaSeconds <= 0.0) {
+        return;
+    }
+    stats.totalAppTimeSeconds += deltaSeconds;
 }
 
 int StatisticsManager::DifficultyToIndex(int difficulty) const {

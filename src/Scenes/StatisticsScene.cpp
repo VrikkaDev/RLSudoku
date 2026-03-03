@@ -86,6 +86,7 @@ void StatisticsScene::Setup() {
     addLine("Games Completed: " + std::to_string(stats.totalGamesCompleted));
     addLine("Completion Rate: " + (stats.totalGamesStarted > 0 ? rateStream.str() + "%" : "-"));
     addLine("Total Play Time: " + FormatTimeOrDash(stats.totalTimeSeconds));
+    addLine("Total Time (App Open): " + FormatTimeOrDash(stats.totalAppTimeSeconds));
     addLine("Average Finish Time: " + FormatTimeOrDash(averageTime));
     addLine("Total Mistakes: " + std::to_string(stats.totalMistakes));
     addLine("Numbers Placed: " + std::to_string(stats.totalNumbersPlaced));

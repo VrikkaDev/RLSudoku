@@ -20,7 +20,8 @@ struct DifficultyStats {
 struct StatisticsData {
     int totalGamesStarted = 0;
     int totalGamesCompleted = 0;
-    double totalTimeSeconds = 0.0;
+    double totalTimeSeconds = 0.0; // Play time: completed run durations
+    double totalAppTimeSeconds = 0.0; // Total time app/game loop has been running
     int totalMistakes = 0;
     int totalNumbersPlaced = 0;
     int totalNumbersCleared = 0;
@@ -44,6 +45,7 @@ public:
                              bool usedAutoCandidates, bool usedAutoCheck, bool usedConflictHighlight);
     void RecordNumberPlaced(int difficulty);
     void RecordNumberCleared(int difficulty, bool hadValueBefore);
+    void RecordAppActiveTime(double deltaSeconds);
 
     const StatisticsData& GetStats() const { return stats; }
     nlohmann::json ExportJson() const;

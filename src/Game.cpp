@@ -87,6 +87,10 @@ void Game::Run() {
 
         GameData::HandleSceneChange();
 
+        if (GameData::statisticsManager) {
+            GameData::statisticsManager->RecordAppActiveTime(GetFrameTime());
+        }
+
         if (GameData::remoteSyncManager) {
             GameData::remoteSyncManager->Update();
         }
@@ -96,6 +100,9 @@ void Game::Run() {
     GameData::storageManager->Save();
     if (GameData::statisticsManager) {
         GameData::statisticsManager->Save();
+    }
+    if (GameData::remoteSyncManager) {
+        GameData::remoteSyncManager->QueueStatisticsUpdate();
     }
     if (GameData::remoteSyncManager) {
         GameData::remoteSyncManager->OnExit();
