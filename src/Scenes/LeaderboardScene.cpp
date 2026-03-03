@@ -14,6 +14,8 @@
 #include "GameScene.h"
 #include "ReplayScene.h"
 
+#include <algorithm>
+
 LeaderboardScene::LeaderboardScene() : Scene() {
 }
 
@@ -78,12 +80,28 @@ void LeaderboardScene::Setup() {
         RefreshEntries();
     };
     drawableStack->AddDrawable(filterConflictHighlightBtn);
+
+    // Player filter button (cycles through known players)
+    float playerFilterW = 360.0f;
+    float playerFilterH = 50.0f;
+    float playerFilterX = dropdownX;
+    float playerFilterY = dropdownY + dropdownH + 10.0f;
+    playerFilterBtn = new GenericButton("Player: All", Rectangle{playerFilterX, playerFilterY, playerFilterW, playerFilterH});
+    playerFilterBtn->fontSize = 18;
+    playerFilterBtn->OnClick = [this](MouseEvent* event) {
+        if (playerFilters.empty()) {
+            return;
+        }
+        selectedPlayerFilter = (selectedPlayerFilter + 1) % static_cast<int>(playerFilters.size());
+        RefreshEntries();
+    };
+    drawableStack->AddDrawable(playerFilterBtn);
     
     // Leaderboard list widget
     float listW = screenW * 0.52f;
-    float listH = screenH - 200;
     float listX = 20;
-    float listY = 150;
+    float listY = 210;
+    float listH = screenH - listY - 20;
     
     leaderboardList = new LeaderboardList(Rectangle{listX, listY, listW, listH});
     drawableStack->AddDrawable(leaderboardList);
@@ -159,6 +177,34 @@ void LeaderboardScene::RefreshEntries() {
         50,
         false // Don't filter assisted at manager level
     );
+
+    std::vector<std::string> nextPlayerFilters;
+    nextPlayerFilters.emplace_back("All");
+    for (const auto& entry : entries) {
+        if (entry.playerName.empty()) {
+            continue;
+        }
+        if (std::find(nextPlayerFilters.begin(), nextPlayerFilters.end(), entry.playerName) == nextPlayerFilters.end()) {
+            nextPlayerFilters.push_back(entry.playerName);
+        }
+    }
+
+    std::string wantedPlayer = "All";
+    if (!playerFilters.empty() && selectedPlayerFilter >= 0 && selectedPlayerFilter < static_cast<int>(playerFilters.size())) {
+        wantedPlayer = playerFilters[selectedPlayerFilter];
+    }
+    playerFilters = std::move(nextPlayerFilters);
+    auto selectedIt = std::find(playerFilters.begin(), playerFilters.end(), wantedPlayer);
+    if (selectedIt != playerFilters.end()) {
+        selectedPlayerFilter = static_cast<int>(std::distance(playerFilters.begin(), selectedIt));
+    } else {
+        selectedPlayerFilter = 0;
+    }
+
+    std::string selectedPlayer = "All";
+    if (selectedPlayerFilter >= 0 && selectedPlayerFilter < static_cast<int>(playerFilters.size())) {
+        selectedPlayer = playerFilters[selectedPlayerFilter];
+    }
     
     // Filter based on individual assist type toggles
     std::vector<LeaderboardEntry> filtered;
@@ -177,6 +223,10 @@ void LeaderboardScene::RefreshEntries() {
         
         // If entry uses conflict highlight and we're hiding them, exclude
         if (entry.usedConflictHighlight && !showConflictHighlight) {
+            includeEntry = false;
+        }
+
+        if (selectedPlayer != "All" && entry.playerName != selectedPlayer) {
             includeEntry = false;
         }
         
@@ -220,6 +270,10 @@ void LeaderboardScene::RefreshEntries() {
     }
     if (filterConflictHighlightBtn) {
         filterConflictHighlightBtn->color = showConflictHighlight ? ORANGE : Color{120, 60, 20, 255};
+    }
+
+    if (playerFilterBtn) {
+        playerFilterBtn->text = std::string("Player: ") + selectedPlayer;
     }
 }
 

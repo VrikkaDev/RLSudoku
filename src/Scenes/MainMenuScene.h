@@ -13,7 +13,11 @@ public:
     MainMenuScene();
     ~MainMenuScene();
     void Setup() override;
+    void OnUpdate() override;
     void OnResize() override;
+
+private:
+    class TextWidget* syncStatusText = nullptr;
 };
 
 

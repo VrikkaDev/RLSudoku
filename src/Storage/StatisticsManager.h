@@ -46,6 +46,8 @@ public:
     void RecordNumberCleared(int difficulty, bool hadValueBefore);
 
     const StatisticsData& GetStats() const { return stats; }
+    nlohmann::json ExportJson() const;
+    bool ImportJson(const nlohmann::json& root);
 
     void Save() const;
     void Load();

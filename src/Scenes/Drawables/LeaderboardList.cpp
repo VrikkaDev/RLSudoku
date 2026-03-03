@@ -42,7 +42,8 @@ void LeaderboardList::Draw() {
     DrawTextBCL("Time", textX + 60, headerY, 18, 18, LIGHTGRAY);
     DrawTextBCL("Difficulty", textX + 150, headerY, 18, 18, LIGHTGRAY);
     DrawTextBCL("Assists", textX + 260, headerY, 18, 18, LIGHTGRAY);
-    DrawTextBCL("Date", textX + 340, headerY, 18, 18, LIGHTGRAY);
+    DrawTextBCL("Player", textX + 340, headerY, 18, 18, LIGHTGRAY);
+    DrawTextBCL("Date", textX + 500, headerY, 18, 18, LIGHTGRAY);
     
     // Draw entries (without scissor mode for now - will add back later)
     float entryY = headerY + 30 - scrollOffset;
@@ -100,12 +101,19 @@ void LeaderboardList::Draw() {
         if (entry.usedConflictHighlight) assistStr += "H";
         if (assistStr.empty()) assistStr = "-";
         DrawTextBCL(assistStr.c_str(), textX + 280, entryY + 5, 18, 18, textColor);
+
+        // Submitter / player
+        std::string playerStr = entry.playerName.empty() ? std::string("Unknown") : entry.playerName;
+        if (playerStr.size() > 14) {
+            playerStr = playerStr.substr(0, 14);
+        }
+        DrawTextBCL(playerStr.c_str(), textX + 340, entryY + 5, 18, 18, textColor);
         
         // Date
         char dateStr[32];
         std::tm* timeinfo = std::localtime(&entry.completedAt);
         std::strftime(dateStr, sizeof(dateStr), "%m/%d/%y", timeinfo);
-        DrawTextBCL(dateStr, textX + 340, entryY + 5, 16, 16, textColor);
+        DrawTextBCL(dateStr, textX + 500, entryY + 5, 16, 16, textColor);
         
         entryY += rowHeight;
     }

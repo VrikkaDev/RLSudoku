@@ -130,6 +130,9 @@ GameScene::GameScene(int difficulty) : Scene(){
         loop_amount++;
         if(loop_amount >= 20){
             std::cout<<"Couldnt solve the sudoku or someting in 20 tries"<<std::endl;
+            if (GameData::remoteSyncManager) {
+                GameData::remoteSyncManager->ForceSync();
+            }
             GameData::SetScene(std::make_unique<MainMenuScene>());
             return;
         }
@@ -217,6 +220,9 @@ void GameScene::Setup() {
     auto bb = new GenericButton("Back", Rectangle{bx,by,bw,bh});
     bb->fontSize = bh/2;
     bb->OnClick = [](MouseEvent* event) {
+        if (GameData::remoteSyncManager) {
+            GameData::remoteSyncManager->ForceSync();
+        }
         GameData::SetScene(std::make_unique<MainMenuScene>());
     };
     drawableStack->AddDrawable(bb);
@@ -419,7 +425,7 @@ void GameScene::SubmitToLeaderboard() {
     GameData::leaderboardManager->AddEntry(entry);
 
     if (GameData::remoteSyncManager) {
-        GameData::remoteSyncManager->QueueLeaderboardUpdate();
+        GameData::remoteSyncManager->QueueLeaderboardSubmission(entry);
     }
 
     if (GameData::statisticsManager) {

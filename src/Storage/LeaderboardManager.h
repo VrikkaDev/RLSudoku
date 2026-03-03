@@ -74,6 +74,9 @@ public:
     
     // Add a new entry (will sort automatically)
     void AddEntry(const LeaderboardEntry& entry);
+
+    const std::vector<LeaderboardEntry>& GetAllEntries() const { return entries; }
+    void ReplaceAllEntries(const std::vector<LeaderboardEntry>& newEntries);
     
     // Get top entries for a difficulty range
     // filterAssisted: if true, exclude runs with auto-candidates/autocheck

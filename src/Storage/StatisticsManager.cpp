@@ -4,56 +4,17 @@
 
 #include "StatisticsManager.h"
 #include "Helpers/TimeHelper.h"
-#include "GameData.h"
-#include "Storage/RemoteSyncManager.h"
 
 StatisticsManager::StatisticsManager() {
     Load();
 }
 
 void StatisticsManager::Load() {
+    // Server-first: runtime stats are loaded via remote sync, local file is backup-only.
     stats = StatisticsData{};
-
-    std::ifstream file(filename);
-    if (!file.good()) {
-        return;
-    }
-
-    try {
-        nlohmann::json root = nlohmann::json::parse(file);
-        file.close();
-
-        stats.totalGamesStarted = root.value("totalGamesStarted", 0);
-        stats.totalGamesCompleted = root.value("totalGamesCompleted", 0);
-        stats.totalTimeSeconds = root.value("totalTimeSeconds", 0.0);
-        stats.totalMistakes = root.value("totalMistakes", 0);
-        stats.totalNumbersPlaced = root.value("totalNumbersPlaced", 0);
-        stats.totalNumbersCleared = root.value("totalNumbersCleared", 0);
-        stats.runsWithAutoCandidates = root.value("runsWithAutoCandidates", 0);
-        stats.runsWithAutoCheck = root.value("runsWithAutoCheck", 0);
-        stats.runsWithConflictHighlight = root.value("runsWithConflictHighlight", 0);
-        stats.runsWithAssists = root.value("runsWithAssists", 0);
-        stats.runsWithoutAssists = root.value("runsWithoutAssists", 0);
-
-        if (root.contains("difficulties") && root["difficulties"].is_array()) {
-            auto diffs = root["difficulties"];
-            for (size_t i = 0; i < std::min(diffs.size(), stats.difficulties.size()); ++i) {
-                const auto& d = diffs[i];
-                stats.difficulties[i].gamesStarted = d.value("gamesStarted", 0);
-                stats.difficulties[i].gamesCompleted = d.value("gamesCompleted", 0);
-                stats.difficulties[i].totalTimeSeconds = d.value("totalTimeSeconds", 0.0);
-                stats.difficulties[i].bestTimeSeconds = d.value("bestTimeSeconds", 0.0);
-                stats.difficulties[i].numbersPlaced = d.value("numbersPlaced", 0);
-                stats.difficulties[i].numbersCleared = d.value("numbersCleared", 0);
-            }
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "Failed to load statistics: " << e.what() << std::endl;
-        stats = StatisticsData{};
-    }
 }
 
-void StatisticsManager::Save() const {
+nlohmann::json StatisticsManager::ExportJson() const {
     nlohmann::json root;
     root["totalGamesStarted"] = stats.totalGamesStarted;
     root["totalGamesCompleted"] = stats.totalGamesCompleted;
@@ -80,6 +41,49 @@ void StatisticsManager::Save() const {
     }
     root["difficulties"] = diffArray;
 
+    return root;
+}
+
+bool StatisticsManager::ImportJson(const nlohmann::json& root) {
+    try {
+        StatisticsData imported{};
+
+        imported.totalGamesStarted = root.value("totalGamesStarted", 0);
+        imported.totalGamesCompleted = root.value("totalGamesCompleted", 0);
+        imported.totalTimeSeconds = root.value("totalTimeSeconds", 0.0);
+        imported.totalMistakes = root.value("totalMistakes", 0);
+        imported.totalNumbersPlaced = root.value("totalNumbersPlaced", 0);
+        imported.totalNumbersCleared = root.value("totalNumbersCleared", 0);
+        imported.runsWithAutoCandidates = root.value("runsWithAutoCandidates", 0);
+        imported.runsWithAutoCheck = root.value("runsWithAutoCheck", 0);
+        imported.runsWithConflictHighlight = root.value("runsWithConflictHighlight", 0);
+        imported.runsWithAssists = root.value("runsWithAssists", 0);
+        imported.runsWithoutAssists = root.value("runsWithoutAssists", 0);
+
+        if (root.contains("difficulties") && root["difficulties"].is_array()) {
+            const auto& diffs = root["difficulties"];
+            for (size_t i = 0; i < std::min(diffs.size(), imported.difficulties.size()); ++i) {
+                const auto& d = diffs[i];
+                imported.difficulties[i].gamesStarted = d.value("gamesStarted", 0);
+                imported.difficulties[i].gamesCompleted = d.value("gamesCompleted", 0);
+                imported.difficulties[i].totalTimeSeconds = d.value("totalTimeSeconds", 0.0);
+                imported.difficulties[i].bestTimeSeconds = d.value("bestTimeSeconds", 0.0);
+                imported.difficulties[i].numbersPlaced = d.value("numbersPlaced", 0);
+                imported.difficulties[i].numbersCleared = d.value("numbersCleared", 0);
+            }
+        }
+
+        stats = std::move(imported);
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to import statistics json: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+void StatisticsManager::Save() const {
+    nlohmann::json root = ExportJson();
+
     std::ofstream file(filename);
     if (!file.good()) {
         std::cerr << "Failed to save statistics to " << filename << std::endl;
@@ -89,9 +93,6 @@ void StatisticsManager::Save() const {
     file << root.dump(4);
     file.close();
 
-    if (GameData::remoteSyncManager) {
-        GameData::remoteSyncManager->QueueStatisticsUpdate();
-    }
 }
 
 void StatisticsManager::RecordGameStart(int difficulty) {

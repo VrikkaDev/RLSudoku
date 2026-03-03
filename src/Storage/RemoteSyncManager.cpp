@@ -3,10 +3,8 @@
 #include "Storage/LeaderboardManager.h"
 #include "Storage/StatisticsManager.h"
 
-#include <sstream>
 #include <iomanip>
-#include <ctime>
-#include <iterator>
+#include <sstream>
 #include <cctype>
 
 #ifdef _WIN32
@@ -23,48 +21,28 @@
 
 namespace {
 
+std::string BuildRemoteUrl(const std::string& serverIp, int serverPort, bool useHttps) {
+    const std::string host = serverIp.empty() ? std::string("127.0.0.1") : serverIp;
+    const int port = (serverPort > 0 && serverPort <= 65535) ? serverPort : 8000;
+    std::ostringstream url;
+    url << (useHttps ? "https://" : "http://") << host << ':' << port;
+    return url.str();
+}
+
 RemoteSyncConfig GetDefaultConfig() {
     RemoteSyncConfig cfg;
-    cfg.remoteUrl.clear();
-    cfg.branch = "main";
+    cfg.serverIp = "127.0.0.1";
+    cfg.serverPort = 8000;
+    cfg.useHttps = false;
     cfg.username.clear();
-    cfg.token.clear();
-    cfg.autoSyncOnSubmit = false;
-    cfg.periodicSyncEnabled = true;
-    cfg.periodicIntervalSeconds = 300.0;
-    cfg.syncOnExit = true;
     return cfg;
 }
 
-std::string Base64Encode(const std::vector<uint8_t>& data) {
-    static constexpr char table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    std::string encoded;
-    encoded.reserve(((data.size() + 2) / 3) * 4);
-
-    for (size_t i = 0; i < data.size(); i += 3) {
-        uint32_t value = static_cast<uint32_t>(data[i]) << 16;
-        if (i + 1 < data.size()) {
-            value |= static_cast<uint32_t>(data[i + 1]) << 8;
-        }
-        if (i + 2 < data.size()) {
-            value |= static_cast<uint32_t>(data[i + 2]);
-        }
-
-        encoded.push_back(table[(value >> 18) & 0x3F]);
-        encoded.push_back(table[(value >> 12) & 0x3F]);
-        if (i + 1 < data.size()) {
-            encoded.push_back(table[(value >> 6) & 0x3F]);
-        } else {
-            encoded.push_back('=');
-        }
-        if (i + 2 < data.size()) {
-            encoded.push_back(table[value & 0x3F]);
-        } else {
-            encoded.push_back('=');
-        }
-    }
-
-    return encoded;
+std::string ToLowerCopy(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return value;
 }
 
 #ifdef _WIN32
@@ -72,43 +50,6 @@ std::wstring ToWide(const std::string& value) {
     return std::wstring(value.begin(), value.end());
 }
 #endif
-
-std::vector<uint8_t> Base64Decode(const std::string& input) {
-    static constexpr char table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    static int lookup[256];
-    static bool initialized = false;
-    if (!initialized) {
-        std::fill(std::begin(lookup), std::end(lookup), -1);
-        for (int i = 0; i < 64; ++i) {
-            lookup[static_cast<unsigned char>(table[i])] = i;
-        }
-        initialized = true;
-    }
-
-    std::vector<uint8_t> output;
-    int val = 0;
-    int valb = -8;
-    for (char c : input) {
-        unsigned char uc = static_cast<unsigned char>(c);
-        if (uc == '\r' || uc == '\n') {
-            continue;
-        }
-        if (c == '=') {
-            break;
-        }
-        int decoded = lookup[uc];
-        if (decoded < 0) {
-            continue;
-        }
-        val = (val << 6) | decoded;
-        valb += 6;
-        if (valb >= 0) {
-            output.push_back(static_cast<uint8_t>((val >> valb) & 0xFF));
-            valb -= 8;
-        }
-    }
-    return output;
-}
 
 #ifndef _WIN32
 bool EnsureCurlInitialized() {
@@ -127,19 +68,90 @@ bool EnsureCurlInitialized() {
 }
 #endif
 
+nlohmann::json MoveToJson(const MoveRecord& move) {
+    auto maskToList = [](uint16_t mask) {
+        nlohmann::json values = nlohmann::json::array();
+        for (int index = 0; index < 9; ++index) {
+            if ((mask & static_cast<uint16_t>(1u << index)) != 0) {
+                values.push_back(index + 1);
+            }
+        }
+        return values;
+    };
+
+    nlohmann::json value;
+    value["tileNumber"] = move.tileNumber;
+    value["value"] = move.value;
+    value["timestamp"] = move.timestamp;
+    value["notesMask"] = move.notesMask;
+    value["removedMask"] = move.removedMask;
+    value["notes"] = maskToList(move.notesMask);
+    value["removedCandidates"] = maskToList(move.removedMask);
+    value["autoCandidatesEnabled"] = move.autoCandidatesEnabled;
+    value["action"] = static_cast<int>(move.action);
+    return value;
 }
+
+MoveRecord JsonToMove(const nlohmann::json& value) {
+    auto listToMask = [](const nlohmann::json& listValue) {
+        uint16_t mask = 0;
+        if (!listValue.is_array()) {
+            return mask;
+        }
+        for (const auto& item : listValue) {
+            if (!item.is_number_integer()) {
+                continue;
+            }
+            int candidate = item.get<int>();
+            if (candidate >= 1 && candidate <= 9) {
+                mask |= static_cast<uint16_t>(1u << (candidate - 1));
+            }
+        }
+        return mask;
+    };
+
+    MoveRecord move;
+    move.tileNumber = value.value("tileNumber", 0);
+    move.value = value.value("value", 0);
+    move.timestamp = value.value("timestamp", 0.0);
+    move.notesMask = static_cast<uint16_t>(value.value("notesMask", 0));
+    move.removedMask = static_cast<uint16_t>(value.value("removedMask", 0));
+    if (move.notesMask == 0 && value.contains("notes")) {
+        move.notesMask = listToMask(value["notes"]);
+    }
+    if (move.removedMask == 0 && value.contains("removedCandidates")) {
+        move.removedMask = listToMask(value["removedCandidates"]);
+    }
+    move.autoCandidatesEnabled = value.value("autoCandidatesEnabled", false);
+    move.action = static_cast<MoveAction>(value.value("action", 0));
+    return move;
+}
+
+} // namespace
 
 RemoteSyncManager::RemoteSyncManager() {
     configPath = std::filesystem::path("./remote_sync.json");
+    failedSubmissionsPath = std::filesystem::path("./remote_failed_submissions.jsonl");
     config = GetDefaultConfig();
     LoadConfig();
+
     auto now = std::chrono::steady_clock::now();
     lastSyncAttempt = now;
     lastSuccessfulSync = now;
+    lastOutboundPacket = now;
+    lastReconnectAttempt = now - std::chrono::seconds(30);
+
 #ifndef _WIN32
     curlAvailable = EnsureCurlInitialized();
 #endif
-    PerformInitialPull();
+
+    StartInitialPullAsync();
+}
+
+RemoteSyncManager::~RemoteSyncManager() {
+    JoinInitialPullThread();
+    JoinKeepAliveThread();
+    JoinSyncThread();
 }
 
 void RemoteSyncManager::LoadConfig() {
@@ -157,31 +169,32 @@ void RemoteSyncManager::LoadConfig() {
 
     try {
         nlohmann::json data = nlohmann::json::parse(input, nullptr, true, true);
-        config.remoteUrl = data.value("remoteUrl", "");
-        config.branch = data.value("branch", std::string("main"));
+        config.serverIp = data.value("serverIp", std::string(""));
+        config.serverPort = data.value("serverPort", 8000);
+        config.useHttps = data.value("useHttps", false);
+
         config.username = data.value("username", "");
-        config.token = data.value("token", "");
-        config.autoSyncOnSubmit = data.value("autoSyncOnSubmit", false);
-        config.periodicSyncEnabled = data.value("periodicSyncEnabled", true);
-        config.periodicIntervalSeconds = data.value("periodicIntervalSeconds", 300.0);
-        config.syncOnExit = data.value("syncOnExit", true);
     } catch (const std::exception&) {
         config = GetDefaultConfig();
     }
+
+    if (config.serverIp.empty()) {
+        config.serverIp = "127.0.0.1";
+    }
+    if (config.serverPort <= 0 || config.serverPort > 65535) {
+        config.serverPort = 8000;
+    }
+    authToken.clear();
 
     remoteUrlValid = ParseRemoteUrl();
 }
 
 void RemoteSyncManager::SaveConfig() const {
     nlohmann::json data;
-    data["remoteUrl"] = config.remoteUrl;
-    data["branch"] = config.branch;
+    data["serverIp"] = config.serverIp;
+    data["serverPort"] = config.serverPort;
+    data["useHttps"] = config.useHttps;
     data["username"] = config.username;
-    data["token"] = config.token;
-    data["autoSyncOnSubmit"] = config.autoSyncOnSubmit;
-    data["periodicSyncEnabled"] = config.periodicSyncEnabled;
-    data["periodicIntervalSeconds"] = config.periodicIntervalSeconds;
-    data["syncOnExit"] = config.syncOnExit;
 
     std::ofstream output(configPath);
     output << data.dump(4);
@@ -192,41 +205,95 @@ const RemoteSyncConfig& RemoteSyncManager::GetConfig() const {
 }
 
 void RemoteSyncManager::UpdateConfig(const RemoteSyncConfig& newConfig) {
+    JoinInitialPullThread();
+    JoinKeepAliveThread();
+    JoinSyncThread();
+
     config = newConfig;
+    if (config.serverIp.empty()) {
+        config.serverIp = "127.0.0.1";
+    }
+    if (config.serverPort <= 0 || config.serverPort > 65535) {
+        config.serverPort = 8000;
+    }
+    authToken.clear();
     warnedMissingCredentials = false;
     SaveConfig();
     remoteUrlValid = ParseRemoteUrl();
     initialPullPerformed = false;
-    PerformInitialPull();
+    keepAliveInFlight.store(false);
+    lastOutboundPacket = std::chrono::steady_clock::now();
+    lastReconnectAttempt = lastOutboundPacket - std::chrono::seconds(30);
+    StartInitialPullAsync();
 }
 
 void RemoteSyncManager::QueueLeaderboardUpdate() {
     leaderboardDirty = true;
-    if (config.autoSyncOnSubmit) {
-        ForceSync();
+    StartSyncAsync();
+}
+
+void RemoteSyncManager::QueueLeaderboardSubmission(const LeaderboardEntry& entry) {
+    {
+        std::lock_guard<std::mutex> lock(syncMutex);
+        pendingLeaderboardSubmissions.push_back(entry);
+        leaderboardDirty = true;
     }
+    StartSyncAsync();
 }
 
 void RemoteSyncManager::QueueStatisticsUpdate() {
     statisticsDirty = true;
-    if (config.autoSyncOnSubmit) {
-        ForceSync();
-    }
+    StartSyncAsync();
 }
 
 void RemoteSyncManager::Update() {
-    auto now = std::chrono::steady_clock::now();
-    if (!HasDirtyData()) {
+    if (keepAliveThread.joinable() && !keepAliveInFlight.load()) {
+        keepAliveThread.join();
+    }
+
+    if (syncThread.joinable() && !syncInFlight.load()) {
+        syncThread.join();
+    }
+
+    constexpr auto reconnectRetryInterval = std::chrono::seconds(30);
+    const auto now = std::chrono::steady_clock::now();
+
+    if (connectionState.load() == ConnectionState::Error &&
+        !config.serverIp.empty() &&
+        !config.username.empty() &&
+        (now - lastReconnectAttempt) >= reconnectRetryInterval) {
+        lastReconnectAttempt = now;
+        if (!initialPullPerformed) {
+            StartInitialPullAsync();
+        } else {
+            StartKeepAliveAsync();
+        }
         return;
     }
 
-    if (!config.periodicSyncEnabled) {
+    if (!initialPullPerformed) {
         return;
     }
 
-    if (ShouldAttemptPeriodicSync(now)) {
-        ForceSync();
+    if (connectionState.load() != ConnectionState::Connected) {
+        return;
     }
+
+    if (HasDirtyData() && !syncInFlight.load()) {
+        StartSyncAsync();
+        return;
+    }
+
+    if (keepAliveInFlight.load()) {
+        return;
+    }
+
+    constexpr auto keepAliveInterval = std::chrono::minutes(14);
+    if (now - lastOutboundPacket < keepAliveInterval) {
+        return;
+    }
+
+    StartKeepAliveAsync();
 }
 
 void RemoteSyncManager::ForceSync() {
@@ -234,9 +301,130 @@ void RemoteSyncManager::ForceSync() {
         return;
     }
 
+    std::lock_guard<std::mutex> lock(syncMutex);
     if (PerformSync()) {
         lastSuccessfulSync = std::chrono::steady_clock::now();
     }
+}
+
+void RemoteSyncManager::StartSyncAsync() {
+    if (syncInFlight.load()) {
+        return;
+    }
+
+    if (!HasDirtyData()) {
+        return;
+    }
+
+    if (config.serverIp.empty() || config.username.empty()) {
+        return;
+    }
+
+    if (syncThread.joinable()) {
+        syncThread.join();
+    }
+
+    syncInFlight.store(true);
+    syncThread = std::thread([this]() {
+        {
+            std::lock_guard<std::mutex> lock(syncMutex);
+            if (PerformSync()) {
+                lastSuccessfulSync = std::chrono::steady_clock::now();
+            }
+        }
+        syncInFlight.store(false);
+    });
+}
+
+void RemoteSyncManager::JoinSyncThread() {
+    if (syncThread.joinable()) {
+        syncThread.join();
+    }
+    syncInFlight.store(false);
+}
+
+void RemoteSyncManager::StartInitialPullAsync() {
+    if (config.username.empty()) {
+        connectionState.store(ConnectionState::NotConfigured);
+        return;
+    }
+
+#ifndef _WIN32
+    if (!curlAvailable) {
+        connectionState.store(ConnectionState::Disabled);
+        return;
+    }
+#endif
+
+    connectionState.store(ConnectionState::Connecting);
+
+    if (initialPullThread.joinable()) {
+        initialPullThread.join();
+    }
+
+    initialPullThread = std::thread([this]() {
+        std::lock_guard<std::mutex> lock(syncMutex);
+        PerformInitialPull();
+
+        if (initialPullPerformed) {
+            connectionState.store(ConnectionState::Connected);
+        } else {
+            if (config.username.empty()) {
+                connectionState.store(ConnectionState::NotConfigured);
+            } else {
+                connectionState.store(ConnectionState::Error);
+            }
+        }
+    });
+}
+
+void RemoteSyncManager::JoinInitialPullThread() {
+    if (initialPullThread.joinable()) {
+        initialPullThread.join();
+    }
+}
+
+void RemoteSyncManager::StartKeepAliveAsync() {
+    if (keepAliveInFlight.load()) {
+        return;
+    }
+
+    if (keepAliveThread.joinable()) {
+        keepAliveThread.join();
+    }
+
+    keepAliveInFlight.store(true);
+    keepAliveThread = std::thread([this]() {
+        bool ok = false;
+        {
+            std::lock_guard<std::mutex> lock(syncMutex);
+            if (EnsureAuthToken()) {
+                HttpResponse response;
+#ifdef _WIN32
+                ok = SendRequest(L"GET", BuildPath("api/auth/me"), "", response) && response.statusCode == 200;
+#else
+                ok = SendCurlRequest("GET", BuildUrl("api/auth/me"), "", response) && response.statusCode == 200;
+#endif
+            }
+        }
+
+        if (ok) {
+            connectionState.store(ConnectionState::Connected);
+        } else if (config.username.empty()) {
+            connectionState.store(ConnectionState::NotConfigured);
+        } else {
+            connectionState.store(ConnectionState::Error);
+        }
+
+        keepAliveInFlight.store(false);
+    });
+}
+
+void RemoteSyncManager::JoinKeepAliveThread() {
+    if (keepAliveThread.joinable()) {
+        keepAliveThread.join();
+    }
+    keepAliveInFlight.store(false);
 }
 
 void RemoteSyncManager::PerformInitialPull() {
@@ -244,9 +432,9 @@ void RemoteSyncManager::PerformInitialPull() {
         return;
     }
 
-    if (config.remoteUrl.empty() || config.branch.empty() || config.token.empty()) {
+    if (config.serverIp.empty() || config.username.empty()) {
         if (!warnedMissingCredentials) {
-            std::cout << "[RemoteSync] Remote configuration incomplete; skipping initial pull." << std::endl;
+            std::cout << "[RemoteSync] Server IP or username missing; skipping initial sync pull." << std::endl;
             warnedMissingCredentials = true;
         }
         return;
@@ -268,48 +456,71 @@ void RemoteSyncManager::PerformInitialPull() {
     }
 #endif
 
-    initialPullPerformed = true;
-    warnedMissingCredentials = false;
-    bool pulledAny = false;
-    if (DownloadFile("leaderboards.bin", std::filesystem::path("./leaderboards.bin"))) {
-        pulledAny = true;
-    }
-    if (DownloadFile("stats.json", std::filesystem::path("./stats.json"))) {
-        pulledAny = true;
-    }
-
-    if (pulledAny) {
-        std::cout << "[RemoteSync] Initial data pulled from remote." << std::endl;
-    }
-}
-
-void RemoteSyncManager::OnExit() {
-    if (!config.syncOnExit) {
+    if (!EnsureAuthToken()) {
         return;
     }
 
+    initialPullPerformed = true;
+    warnedMissingCredentials = false;
+    PullGlobalLeaderboardFromServer();
+    FetchMyStatsFromServer();
+}
+
+void RemoteSyncManager::OnExit() {
+    JoinInitialPullThread();
+    JoinKeepAliveThread();
+    JoinSyncThread();
+    // Final best-effort flush if something remained dirty due to transient failures.
     ForceSync();
+}
+
+void RemoteSyncManager::LogFailedSubmission(const nlohmann::json& payload, int statusCode, const std::string& reason) const {
+    nlohmann::json line;
+    line["timestamp"] = TimeToIso8601(std::time(nullptr));
+    line["statusCode"] = statusCode;
+    line["reason"] = reason;
+    line["payload"] = payload;
+
+    std::cout << "[RemoteSync] Failed to send submission (status " << statusCode << ", " << reason
+              << "). Payload logged to " << failedSubmissionsPath.string() << std::endl;
+    std::cout << "[RemoteSync] Failed payload: " << payload.dump() << std::endl;
+
+    std::ofstream out(failedSubmissionsPath, std::ios::app);
+    if (out.good()) {
+        out << line.dump() << "\n";
+    }
+}
+
+RemoteSyncManager::ConnectionState RemoteSyncManager::GetConnectionState() const {
+    return connectionState.load();
+}
+
+std::string RemoteSyncManager::GetConnectionStatusText() const {
+    switch (connectionState.load()) {
+        case ConnectionState::Connecting:
+            return "Sync: Connecting...";
+        case ConnectionState::Connected:
+            return HasDirtyData() ? "Sync: Connected (pending upload)" : "Sync: Connected";
+        case ConnectionState::Error:
+            return "Sync: Connection failed";
+        case ConnectionState::Disabled:
+            return "Sync: Unavailable";
+        case ConnectionState::NotConfigured:
+        default:
+            return "Sync: Not configured";
+    }
 }
 
 bool RemoteSyncManager::HasDirtyData() const {
     return leaderboardDirty || statisticsDirty;
 }
 
-bool RemoteSyncManager::ShouldAttemptPeriodicSync(std::chrono::steady_clock::time_point now) const {
-    if (!config.periodicSyncEnabled) {
-        return false;
-    }
-
-    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastSyncAttempt);
-    return elapsed.count() >= static_cast<int64_t>(std::max(1.0, config.periodicIntervalSeconds));
-}
-
 bool RemoteSyncManager::PerformSync() {
     lastSyncAttempt = std::chrono::steady_clock::now();
 
-    if (config.remoteUrl.empty() || config.branch.empty() || config.token.empty()) {
+    if (config.serverIp.empty() || config.username.empty()) {
         if (!warnedMissingCredentials) {
-            std::cout << "[RemoteSync] Missing remote configuration; skipping sync." << std::endl;
+            std::cout << "[RemoteSync] Missing server IP or username; skipping sync." << std::endl;
             warnedMissingCredentials = true;
         }
         return false;
@@ -333,10 +544,16 @@ bool RemoteSyncManager::PerformSync() {
     }
 #endif
 
+    if (!EnsureAuthToken()) {
+        return false;
+    }
+
     bool success = true;
 
     if (leaderboardDirty) {
-        if (UploadFile("leaderboards.bin", std::filesystem::path("./leaderboards.bin"))) {
+        bool pushed = PushLocalLeaderboardsToServer();
+        bool pulled = PullGlobalLeaderboardFromServer();
+        if (pushed && pulled) {
             leaderboardDirty = false;
         } else {
             success = false;
@@ -344,7 +561,9 @@ bool RemoteSyncManager::PerformSync() {
     }
 
     if (statisticsDirty) {
-        if (UploadFile("stats.json", std::filesystem::path("./stats.json"))) {
+        bool pushed = PushMyStatsToServer();
+        bool fetched = FetchMyStatsFromServer();
+        if (pushed && fetched) {
             statisticsDirty = false;
         } else {
             success = false;
@@ -354,39 +573,377 @@ bool RemoteSyncManager::PerformSync() {
     return success;
 }
 
+bool RemoteSyncManager::EnsureAuthToken() {
+    HttpResponse meResponse;
+#ifdef _WIN32
+    if (SendRequest(L"GET", BuildPath("api/auth/me"), "", meResponse) && meResponse.statusCode == 200) {
+        return true;
+    }
+#else
+    if (SendCurlRequest("GET", BuildUrl("api/auth/me"), "", meResponse) && meResponse.statusCode == 200) {
+        return true;
+    }
+#endif
+
+    nlohmann::json authPayload;
+    authPayload["username"] = config.username;
+
+    HttpResponse loginResponse;
+#ifdef _WIN32
+    bool loginSent = SendRequest(L"POST", BuildPath("api/auth/login"), authPayload.dump(), loginResponse);
+#else
+    bool loginSent = SendCurlRequest("POST", BuildUrl("api/auth/login"), authPayload.dump(), loginResponse);
+#endif
+
+    if (!loginSent || loginResponse.statusCode == 401) {
+        HttpResponse registerResponse;
+#ifdef _WIN32
+        bool registerSent = SendRequest(L"POST", BuildPath("api/auth/register"), authPayload.dump(), registerResponse);
+#else
+        bool registerSent = SendCurlRequest("POST", BuildUrl("api/auth/register"), authPayload.dump(), registerResponse);
+#endif
+        if (!registerSent || (registerResponse.statusCode != 200 && registerResponse.statusCode != 201 && registerResponse.statusCode != 409)) {
+            std::cout << "[RemoteSync] Failed to register/login user on server." << std::endl;
+            return false;
+        }
+
+#ifdef _WIN32
+        loginSent = SendRequest(L"POST", BuildPath("api/auth/login"), authPayload.dump(), loginResponse);
+#else
+        loginSent = SendCurlRequest("POST", BuildUrl("api/auth/login"), authPayload.dump(), loginResponse);
+#endif
+    }
+
+    if (!loginSent || loginResponse.statusCode != 200) {
+        std::cout << "[RemoteSync] Login failed (status " << loginResponse.statusCode << ")." << std::endl;
+        return false;
+    }
+
+    try {
+        nlohmann::json tokenJson = nlohmann::json::parse(loginResponse.body);
+        authToken = tokenJson.value("access_token", "");
+        if (authToken.empty()) {
+            std::cout << "[RemoteSync] Login response missing access token." << std::endl;
+            return false;
+        }
+        return true;
+    } catch (const std::exception&) {
+        std::cout << "[RemoteSync] Failed to parse login response." << std::endl;
+        return false;
+    }
+}
+
+bool RemoteSyncManager::PushLocalLeaderboardsToServer() {
+    if (pendingLeaderboardSubmissions.empty()) {
+        return true;
+    }
+
+    std::vector<LeaderboardEntry> entriesToSubmit = pendingLeaderboardSubmissions;
+    std::vector<LeaderboardEntry> remainingEntries;
+    remainingEntries.reserve(entriesToSubmit.size());
+    bool overallSuccess = true;
+
+    for (const auto& entry : entriesToSubmit) {
+        nlohmann::json payload;
+        payload["run_id"] = BuildRunId(entry);
+        payload["difficulty"] = entry.difficulty;
+        payload["completion_time"] = entry.completionTime;
+        payload["used_auto_candidates"] = entry.usedAutoCandidates;
+        payload["used_auto_check"] = entry.usedAutoCheck;
+        payload["used_conflict_highlight"] = entry.usedConflictHighlight;
+        payload["initial_board"] = entry.initialBoard;
+        payload["solution_board"] = entry.solutionBoard;
+
+        nlohmann::json movesArray = nlohmann::json::array();
+        for (const auto& move : entry.moves) {
+            movesArray.push_back(MoveToJson(move));
+        }
+        payload["moves"] = movesArray;
+        payload["moves_json"] = movesArray.dump();
+        payload["started_at"] = TimeToIso8601(entry.startedAt);
+        payload["completed_at"] = TimeToIso8601(entry.completedAt);
+
+        HttpResponse response;
+#ifdef _WIN32
+        bool sent = SendRequest(L"POST", BuildPath("api/scores/submit"), payload.dump(), response);
+#else
+        bool sent = SendCurlRequest("POST", BuildUrl("api/scores/submit"), payload.dump(), response);
+#endif
+
+        if (!sent) {
+            LogFailedSubmission(payload, 0, "network_error");
+            remainingEntries.push_back(entry);
+            overallSuccess = false;
+            continue;
+        }
+
+        if (response.statusCode == 409) {
+            continue;
+        }
+
+        if (response.statusCode != 200 && response.statusCode != 201) {
+            LogFailedSubmission(payload, response.statusCode, "http_error");
+            remainingEntries.push_back(entry);
+            overallSuccess = false;
+        }
+    }
+
+    pendingLeaderboardSubmissions = std::move(remainingEntries);
+
+    return overallSuccess;
+}
+
+bool RemoteSyncManager::PullGlobalLeaderboardFromServer() {
+    HttpResponse response;
+#ifdef _WIN32
+    if (!SendRequest(L"GET", BuildPath("api/scores/leaderboard/global/full?limit=2000"), "", response)) {
+#else
+    if (!SendCurlRequest("GET", BuildUrl("api/scores/leaderboard/global/full?limit=2000"), "", response)) {
+#endif
+        std::cout << "[RemoteSync] Failed to fetch global leaderboard from server." << std::endl;
+        return false;
+    }
+
+    if (response.statusCode != 200) {
+        std::cout << "[RemoteSync] Server returned " << response.statusCode << " when fetching leaderboard." << std::endl;
+        return false;
+    }
+
+    if (!GameData::leaderboardManager) {
+        return true;
+    }
+
+    try {
+        auto data = nlohmann::json::parse(response.body);
+        if (!data.is_array()) {
+            return false;
+        }
+
+        std::vector<LeaderboardEntry> synced;
+        synced.reserve(data.size());
+
+        for (const auto& item : data) {
+            LeaderboardEntry entry;
+            entry.playerName = item.value("username", std::string("Player"));
+            entry.completionTime = item.value("completion_time", 0.0);
+            entry.initialBoard = item.value("initial_board", std::string());
+            entry.solutionBoard = item.value("solution_board", std::string());
+            entry.difficulty = item.value("difficulty", 0);
+            entry.usedAutoCandidates = item.value("used_auto_candidates", false);
+            entry.usedAutoCheck = item.value("used_auto_check", false);
+            entry.usedConflictHighlight = item.value("used_conflict_highlight", false);
+            entry.startedAt = ParseIso8601(item.value("started_at", std::string()));
+            entry.completedAt = ParseIso8601(item.value("completed_at", std::string()));
+
+            if (item.contains("moves") && item["moves"].is_array()) {
+                for (const auto& moveItem : item["moves"]) {
+                    entry.moves.push_back(JsonToMove(moveItem));
+                }
+            } else {
+                std::string movesJsonText = item.value("moves_json", std::string("[]"));
+                try {
+                    auto movesJson = nlohmann::json::parse(movesJsonText);
+                    if (movesJson.is_array()) {
+                        for (const auto& moveItem : movesJson) {
+                            entry.moves.push_back(JsonToMove(moveItem));
+                        }
+                    }
+                } catch (const std::exception&) {
+                }
+            }
+
+            if (entry.initialBoard.size() == 81 && entry.solutionBoard.size() == 81 && entry.completionTime > 0.0) {
+                synced.push_back(std::move(entry));
+            }
+        }
+
+        GameData::leaderboardManager->ReplaceAllEntries(synced);
+        return true;
+    } catch (const std::exception& e) {
+        std::cout << "[RemoteSync] Failed to parse global leaderboard response: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+bool RemoteSyncManager::PushMyStatsToServer() {
+    if (!GameData::statisticsManager) {
+        return true;
+    }
+
+    nlohmann::json payload;
+    payload["stats_json"] = GameData::statisticsManager->ExportJson();
+
+    HttpResponse response;
+#ifdef _WIN32
+    bool sent = SendRequest(L"PUT", BuildPath("api/scores/stats/full/me"), payload.dump(), response);
+#else
+    bool sent = SendCurlRequest("PUT", BuildUrl("api/scores/stats/full/me"), payload.dump(), response);
+#endif
+
+    if (!sent) {
+        return false;
+    }
+
+    return response.statusCode == 200;
+}
+
+bool RemoteSyncManager::FetchMyStatsFromServer() {
+    HttpResponse response;
+#ifdef _WIN32
+    bool sent = SendRequest(L"GET", BuildPath("api/scores/stats/full/me"), "", response);
+#else
+    bool sent = SendCurlRequest("GET", BuildUrl("api/scores/stats/full/me"), "", response);
+#endif
+
+    if (!sent) {
+        return false;
+    }
+
+    if (response.statusCode == 404) {
+        // Backward compatibility with older servers that only support summary stats.
+#ifdef _WIN32
+        sent = SendRequest(L"GET", BuildPath("api/scores/stats/me"), "", response);
+#else
+        sent = SendCurlRequest("GET", BuildUrl("api/scores/stats/me"), "", response);
+#endif
+        if (!sent) {
+            return false;
+        }
+        return response.statusCode == 200;
+    }
+
+    if (response.statusCode != 200) {
+        return false;
+    }
+
+    if (!GameData::statisticsManager) {
+        return true;
+    }
+
+    try {
+        auto data = nlohmann::json::parse(response.body);
+        if (!data.contains("stats_json") || !data["stats_json"].is_object()) {
+            return false;
+        }
+        return GameData::statisticsManager->ImportJson(data["stats_json"]);
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+
+std::string RemoteSyncManager::BuildRunId(const LeaderboardEntry& entry) const {
+    std::ostringstream key;
+    key << entry.playerName << '|'
+        << entry.difficulty << '|'
+        << std::fixed << std::setprecision(6) << entry.completionTime << '|'
+        << entry.startedAt << '|'
+        << entry.completedAt << '|'
+        << entry.initialBoard << '|'
+        << entry.solutionBoard;
+
+    const std::string keyStr = key.str();
+    const size_t hash = std::hash<std::string>{}(keyStr);
+
+    std::ostringstream runId;
+    runId << "rls-" << std::hex << hash;
+    return runId.str();
+}
+
+std::string RemoteSyncManager::TimeToIso8601(std::time_t value) {
+    std::tm tmValue{};
+#ifdef _WIN32
+    gmtime_s(&tmValue, &value);
+#else
+    gmtime_r(&value, &tmValue);
+#endif
+
+    std::ostringstream out;
+    out << std::put_time(&tmValue, "%Y-%m-%dT%H:%M:%SZ");
+    return out.str();
+}
+
+std::time_t RemoteSyncManager::ParseIso8601(const std::string& value) {
+    if (value.empty()) {
+        return 0;
+    }
+
+    std::tm tmValue{};
+    std::istringstream stream(value.substr(0, 19));
+    stream >> std::get_time(&tmValue, "%Y-%m-%dT%H:%M:%S");
+    if (stream.fail()) {
+        return 0;
+    }
+
+#ifdef _WIN32
+    return _mkgmtime(&tmValue);
+#else
+    return timegm(&tmValue);
+#endif
+}
+
 #ifdef _WIN32
 
 bool RemoteSyncManager::ParseRemoteUrl() {
     apiHost.clear();
     apiBasePath.clear();
+    apiPort = INTERNET_DEFAULT_HTTPS_PORT;
+    useHttps = true;
 
-    if (config.remoteUrl.empty()) {
+    const std::string remoteUrl = BuildRemoteUrl(config.serverIp, config.serverPort, config.useHttps);
+
+    const size_t schemePos = remoteUrl.find("://");
+    if (schemePos == std::string::npos) {
         return false;
     }
 
-    const std::string prefix = "https://";
-    if (config.remoteUrl.rfind(prefix, 0) != 0) {
+    const std::string scheme = ToLowerCopy(remoteUrl.substr(0, schemePos));
+    useHttps = (scheme == "https");
+    if (!(scheme == "https" || scheme == "http")) {
         return false;
     }
 
-    size_t hostStart = prefix.size();
-    size_t slashPos = config.remoteUrl.find('/', hostStart);
+    size_t hostStart = schemePos + 3;
+    size_t slashPos = remoteUrl.find('/', hostStart);
+    std::string hostPort = (slashPos == std::string::npos)
+        ? remoteUrl.substr(hostStart)
+        : remoteUrl.substr(hostStart, slashPos - hostStart);
 
-    std::string host = (slashPos == std::string::npos)
-        ? config.remoteUrl.substr(hostStart)
-        : config.remoteUrl.substr(hostStart, slashPos - hostStart);
+    std::string path = (slashPos == std::string::npos)
+        ? std::string("/")
+        : remoteUrl.substr(slashPos);
+
+    if (hostPort.empty()) {
+        return false;
+    }
+
+    std::string host = hostPort;
+    std::string portText;
+    const size_t colonPos = hostPort.rfind(':');
+    if (colonPos != std::string::npos) {
+        host = hostPort.substr(0, colonPos);
+        portText = hostPort.substr(colonPos + 1);
+    }
 
     if (host.empty()) {
         return false;
     }
 
-    std::string path = (slashPos == std::string::npos)
-        ? std::string("/")
-        : config.remoteUrl.substr(slashPos);
+    if (!portText.empty()) {
+        try {
+            int parsedPort = std::stoi(portText);
+            if (parsedPort <= 0 || parsedPort > 65535) {
+                return false;
+            }
+            apiPort = static_cast<INTERNET_PORT>(parsedPort);
+        } catch (const std::exception&) {
+            return false;
+        }
+    } else {
+        apiPort = useHttps ? INTERNET_DEFAULT_HTTPS_PORT : INTERNET_DEFAULT_HTTP_PORT;
+    }
 
     apiHost = ToWide(host);
     apiBasePath = ToWide(path);
-
     if (apiBasePath.empty()) {
         apiBasePath = L"/";
     }
@@ -429,27 +986,32 @@ bool RemoteSyncManager::SendRequest(const std::wstring& method, const std::wstri
         return false;
     }
 
-    HINTERNET connection = WinHttpConnect(session, apiHost.c_str(), INTERNET_DEFAULT_HTTPS_PORT, 0);
+    HINTERNET connection = WinHttpConnect(session, apiHost.c_str(), apiPort, 0);
     if (!connection) {
         WinHttpCloseHandle(session);
         return false;
     }
 
-    HINTERNET request = WinHttpOpenRequest(connection, method.c_str(), path.c_str(), nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
+    DWORD requestFlags = useHttps ? WINHTTP_FLAG_SECURE : 0;
+    HINTERNET request = WinHttpOpenRequest(connection, method.c_str(), path.c_str(), nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, requestFlags);
     if (!request) {
         WinHttpCloseHandle(connection);
         WinHttpCloseHandle(session);
         return false;
     }
 
-    DWORD secureProtocols = WINHTTP_FLAG_SECURE_PROTOCOL_TLS1 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_1 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2;
-    WinHttpSetOption(request, WINHTTP_OPTION_SECURE_PROTOCOLS, &secureProtocols, sizeof(secureProtocols));
-
-    std::wstring headers = L"User-Agent: RLSudoku/1.0\r\nAccept: application/vnd.github+json\r\n";
-    if (!config.token.empty()) {
-        headers += L"Authorization: Bearer " + ToWide(config.token) + L"\r\n";
+    if (useHttps) {
+        DWORD secureProtocols = WINHTTP_FLAG_SECURE_PROTOCOL_TLS1 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_1 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2;
+        WinHttpSetOption(request, WINHTTP_OPTION_SECURE_PROTOCOLS, &secureProtocols, sizeof(secureProtocols));
     }
-    if (method == L"PUT") {
+
+    lastOutboundPacket = std::chrono::steady_clock::now();
+
+    std::wstring headers = L"User-Agent: RLSudoku/1.0\r\nAccept: application/json\r\n";
+    if (!authToken.empty()) {
+        headers += L"Authorization: Bearer " + ToWide(authToken) + L"\r\n";
+    }
+    if (method == L"POST" || method == L"PUT") {
         headers += L"Content-Type: application/json\r\n";
     }
 
@@ -507,16 +1069,14 @@ bool RemoteSyncManager::SendRequest(const std::wstring& method, const std::wstri
 
 bool RemoteSyncManager::ParseRemoteUrl() {
     apiBaseUrl.clear();
-    if (config.remoteUrl.empty()) {
+    const std::string remoteUrl = BuildRemoteUrl(config.serverIp, config.serverPort, config.useHttps);
+
+    const std::string lowered = ToLowerCopy(remoteUrl);
+    if (!(lowered.rfind("https://", 0) == 0 || lowered.rfind("http://", 0) == 0)) {
         return false;
     }
 
-    const std::string prefix = "https://";
-    if (config.remoteUrl.rfind(prefix, 0) != 0) {
-        return false;
-    }
-
-    apiBaseUrl = config.remoteUrl;
+    apiBaseUrl = remoteUrl;
     if (!apiBaseUrl.empty() && apiBaseUrl.back() == '/') {
         apiBaseUrl.pop_back();
     }
@@ -524,7 +1084,7 @@ bool RemoteSyncManager::ParseRemoteUrl() {
 }
 
 std::string RemoteSyncManager::BuildUrl(const std::string& relative) const {
-    std::string base = apiBaseUrl.empty() ? config.remoteUrl : apiBaseUrl;
+    std::string base = apiBaseUrl;
     if (base.empty()) {
         return relative;
     }
@@ -562,26 +1122,24 @@ bool RemoteSyncManager::SendCurlRequest(const std::string& method, const std::st
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buffer);
 
     struct curl_slist* headers = nullptr;
-    headers = curl_slist_append(headers, "Accept: application/vnd.github+json");
-    if (!config.token.empty()) {
-        std::string auth = "Authorization: Bearer " + config.token;
+    headers = curl_slist_append(headers, "Accept: application/json");
+    if (!authToken.empty()) {
+        std::string auth = "Authorization: Bearer " + authToken;
         headers = curl_slist_append(headers, auth.c_str());
     }
 
-    if (method == "PUT") {
+    if (method == "POST" || method == "PUT") {
         headers = curl_slist_append(headers, "Content-Type: application/json");
-        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
+    }
+
+    curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
+    if (!body.empty()) {
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
         curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, static_cast<long>(body.size()));
-    } else {
-        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
-        if (!body.empty()) {
-            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
-            curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, static_cast<long>(body.size()));
-        }
     }
 
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    lastOutboundPacket = std::chrono::steady_clock::now();
     CURLcode res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
         curl_slist_free_all(headers);
@@ -600,172 +1158,3 @@ bool RemoteSyncManager::SendCurlRequest(const std::string& method, const std::st
 }
 
 #endif // _WIN32
-
-RemoteSyncManager::GitHubFileInfo RemoteSyncManager::FetchFileInfo(const std::string& fileName) {
-    GitHubFileInfo info;
-    std::string relative = "contents/" + fileName + "?ref=" + config.branch;
-    HttpResponse response;
-
-#ifdef _WIN32
-    if (!SendRequest(L"GET", BuildPath(relative), "", response)) {
-#else
-    if (!SendCurlRequest("GET", BuildUrl(relative), "", response)) {
-#endif
-        info.error = "Failed to contact GitHub API";
-        return info;
-    }
-
-    info.requestSucceeded = true;
-
-    if (response.statusCode == 200) {
-        try {
-            auto json = nlohmann::json::parse(response.body);
-            info.exists = true;
-            info.sha = json.value("sha", "");
-        } catch (const std::exception& e) {
-            info.error = std::string("Failed to parse GitHub response: ") + e.what();
-            info.requestSucceeded = false;
-        }
-    } else if (response.statusCode == 404) {
-        info.exists = false;
-    } else {
-        info.error = "GitHub responded with status " + std::to_string(response.statusCode);
-        info.requestSucceeded = false;
-    }
-
-    return info;
-}
-
-bool RemoteSyncManager::UploadFile(const std::string& fileName, const std::filesystem::path& localPath) {
-    if (!std::filesystem::exists(localPath)) {
-        std::cout << "[RemoteSync] Local file missing: " << localPath.string() << std::endl;
-        return false;
-    }
-
-    std::ifstream file(localPath, std::ios::binary);
-    if (!file.good()) {
-        std::cout << "[RemoteSync] Failed to read " << localPath.string() << std::endl;
-        return false;
-    }
-    std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-
-    GitHubFileInfo info = FetchFileInfo(fileName);
-    if (!info.requestSucceeded) {
-        if (!info.error.empty()) {
-            std::cout << "[RemoteSync] " << info.error << std::endl;
-        }
-        return false;
-    }
-
-    std::string encoded = Base64Encode(data);
-
-    std::ostringstream message;
-    message << "Update " << fileName;
-    if (!config.username.empty()) {
-        message << " (" << config.username << ")";
-    }
-    std::time_t now = std::time(nullptr);
-    std::tm* gmt = std::gmtime(&now);
-    if (gmt) {
-        message << " @ " << std::put_time(gmt, "%Y-%m-%d %H:%M:%SZ");
-    }
-
-    nlohmann::json payload;
-    payload["message"] = message.str();
-    payload["content"] = encoded;
-    payload["branch"] = config.branch;
-
-    nlohmann::json committer;
-    std::string committerName = config.username.empty() ? std::string("RLSudoku") : config.username;
-    committer["name"] = committerName;
-    committer["email"] = committerName + "@example.com";
-    payload["committer"] = committer;
-
-    if (info.exists && !info.sha.empty()) {
-        payload["sha"] = info.sha;
-    }
-
-    std::string relative = "contents/" + fileName;
-    HttpResponse response;
-
-#ifdef _WIN32
-    if (!SendRequest(L"PUT", BuildPath(relative), payload.dump(), response)) {
-#else
-    if (!SendCurlRequest("PUT", BuildUrl(relative), payload.dump(), response)) {
-#endif
-        std::cout << "[RemoteSync] Failed to upload " << fileName << " to GitHub." << std::endl;
-        return false;
-    }
-
-    if (response.statusCode != 200 && response.statusCode != 201) {
-        std::cout << "[RemoteSync] GitHub rejected upload of " << fileName << " (status " << response.statusCode << ")" << std::endl;
-        return false;
-    }
-
-    std::cout << "[RemoteSync] Uploaded " << fileName << " (" << data.size() << " bytes)." << std::endl;
-    return true;
-}
-
-bool RemoteSyncManager::DownloadFile(const std::string& fileName, const std::filesystem::path& localPath) {
-    std::string relative = "contents/" + fileName + "?ref=" + config.branch;
-    HttpResponse response;
-
-#ifdef _WIN32
-    if (!SendRequest(L"GET", BuildPath(relative), "", response)) {
-#else
-    if (!SendCurlRequest("GET", BuildUrl(relative), "", response)) {
-#endif
-        std::cout << "[RemoteSync] Failed to contact GitHub for " << fileName << std::endl;
-        return false;
-    }
-
-    if (response.statusCode == 404) {
-        std::cout << "[RemoteSync] Remote file not found: " << fileName << std::endl;
-        return false;
-    }
-
-    if (response.statusCode != 200) {
-        std::cout << "[RemoteSync] GitHub responded " << response.statusCode << " for " << fileName << std::endl;
-        return false;
-    }
-
-    try {
-        auto json = nlohmann::json::parse(response.body);
-        std::string encoding = json.value("encoding", "");
-        if (encoding != "base64") {
-            std::cout << "[RemoteSync] Unexpected encoding for " << fileName << std::endl;
-            return false;
-        }
-
-        std::string content = json.value("content", "");
-        auto decoded = Base64Decode(content);
-
-        std::ofstream output(localPath, std::ios::binary);
-        if (!output.good()) {
-            std::cout << "[RemoteSync] Failed to write " << localPath.string() << std::endl;
-            return false;
-        }
-        if (!decoded.empty()) {
-            output.write(reinterpret_cast<const char*>(decoded.data()), static_cast<std::streamsize>(decoded.size()));
-        } else {
-            output.flush();
-        }
-        output.close();
-
-        if (fileName == "leaderboards.bin") {
-            if (GameData::leaderboardManager) {
-                GameData::leaderboardManager->Load();
-            }
-        } else if (fileName == "stats.json") {
-            if (GameData::statisticsManager) {
-                GameData::statisticsManager->Load();
-            }
-        }
-
-        std::cout << "[RemoteSync] Downloaded " << fileName << " (" << decoded.size() << " bytes)." << std::endl;
-        return true;
-    } catch (const std::exception& e) {
-        std::cout << "[RemoteSync] Failed to parse GitHub response for " << fileName << ": " << e.what() << std::endl;
-        return false;
-    }
-}

@@ -7,6 +7,7 @@
 
 #include "Scene.h"
 #include "Storage/LeaderboardManager.h"
+#include <vector>
 
 class LeaderboardList;
 class LeaderboardDetail;
@@ -30,6 +31,8 @@ private:
     bool showAutoCandidates = true;
     bool showAutoCheck = true;
     bool showConflictHighlight = true;
+    std::vector<std::string> playerFilters;
+    int selectedPlayerFilter = 0;
     
     LeaderboardList* leaderboardList = nullptr;
     LeaderboardDetail* detailPanel = nullptr;
@@ -37,6 +40,7 @@ private:
     GenericButton* filterAutoCandidatesBtn = nullptr;
     GenericButton* filterAutoCheckBtn = nullptr;
     GenericButton* filterConflictHighlightBtn = nullptr;
+    GenericButton* playerFilterBtn = nullptr;
     GenericButton* replayButton = nullptr;
     GenericButton* tryPuzzleButton = nullptr;
     

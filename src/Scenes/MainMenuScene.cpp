@@ -12,6 +12,10 @@
 #include "Storage/StorageManager.h"
 #include "Helpers/TimeHelper.h"
 #include "StatisticsScene.h"
+#include "Scenes/Drawables/TextWidget.h"
+#include "Storage/RemoteSyncManager.h"
+
+#include <cmath>
 
 MainMenuScene::MainMenuScene() : Scene() {
 }
@@ -86,6 +90,46 @@ void MainMenuScene::Setup() {
         drawableStack->AddDrawable(cb);
     }
 
+    int statusY = static_cast<int>(GetScreenHeight() - 36);
+    syncStatusText = new TextWidget("Sync: Connecting...", 16, statusY, 20, DARKGRAY, false);
+    drawableStack->AddDrawable(syncStatusText);
+
+}
+
+void MainMenuScene::OnUpdate() {
+    Scene::OnUpdate();
+
+    if (!syncStatusText) {
+        return;
+    }
+
+    if (GameData::remoteSyncManager) {
+        auto state = GameData::remoteSyncManager->GetConnectionState();
+        if (state == RemoteSyncManager::ConnectionState::Connecting) {
+            int dotCount = static_cast<int>(std::fmod(GetTime() * 2.0, 4.0));
+            syncStatusText->text = std::string("Sync: Connecting") + std::string(dotCount, '.');
+        } else {
+            syncStatusText->text = GameData::remoteSyncManager->GetConnectionStatusText();
+        }
+
+        switch (state) {
+            case RemoteSyncManager::ConnectionState::Connected:
+                syncStatusText->color = GREEN;
+                break;
+            case RemoteSyncManager::ConnectionState::Connecting:
+                syncStatusText->color = DARKGRAY;
+                break;
+            case RemoteSyncManager::ConnectionState::NotConfigured:
+            case RemoteSyncManager::ConnectionState::Disabled:
+            case RemoteSyncManager::ConnectionState::Error:
+            default:
+                syncStatusText->color = MAROON;
+                break;
+        }
+    } else {
+        syncStatusText->text = "Sync: Unavailable";
+        syncStatusText->color = MAROON;
+    }
 }
 
 void MainMenuScene::OnResize() {

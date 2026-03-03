@@ -1,26 +1,31 @@
-// RemoteSyncManager handles GitHub leaderboard synchronization configuration and scheduling.
-// The actual network upload will be implemented separately; this class tracks state and timing.
+// RemoteSyncManager handles server-based leaderboard synchronization configuration and scheduling.
 
 #ifndef RLSUDOKU_REMOTESYNCMANAGER_H
 #define RLSUDOKU_REMOTESYNCMANAGER_H
 
 #include "pch.hxx"
 
+struct LeaderboardEntry;
+
 struct RemoteSyncConfig {
-    std::string remoteUrl;
-    std::string branch;
+    std::string serverIp;
+    int serverPort = 8000;
+    bool useHttps = false;
     std::string username;
-    std::string token;
-    bool autoSyncOnSubmit = false;
-    bool periodicSyncEnabled = false;
-    double periodicIntervalSeconds = 300.0;
-    bool syncOnExit = true;
 };
 
 class RemoteSyncManager {
 public:
+    enum class ConnectionState {
+        NotConfigured,
+        Connecting,
+        Connected,
+        Error,
+        Disabled
+    };
+
     RemoteSyncManager();
-    ~RemoteSyncManager() = default;
+    ~RemoteSyncManager();
 
     void LoadConfig();
     void SaveConfig() const;
@@ -29,34 +34,40 @@ public:
     void UpdateConfig(const RemoteSyncConfig& newConfig);
 
     void QueueLeaderboardUpdate();
+    void QueueLeaderboardSubmission(const LeaderboardEntry& entry);
     void QueueStatisticsUpdate();
 
     void Update();
     void ForceSync();
     void OnExit();
     void PerformInitialPull();
+    std::string GetConnectionStatusText() const;
+    ConnectionState GetConnectionState() const;
 
 private:
+    void StartInitialPullAsync();
+    void JoinInitialPullThread();
+    void StartKeepAliveAsync();
+    void JoinKeepAliveThread();
+    void StartSyncAsync();
+    void JoinSyncThread();
+    void LogFailedSubmission(const nlohmann::json& payload, int statusCode, const std::string& reason) const;
     bool HasDirtyData() const;
-    bool ShouldAttemptPeriodicSync(std::chrono::steady_clock::time_point now) const;
     bool PerformSync();
     bool ParseRemoteUrl();
+    bool EnsureAuthToken();
+    bool PushLocalLeaderboardsToServer();
+    bool PushMyStatsToServer();
+    bool PullGlobalLeaderboardFromServer();
+    bool FetchMyStatsFromServer();
+    std::string BuildRunId(const LeaderboardEntry& entry) const;
+    static std::string TimeToIso8601(std::time_t value);
+    static std::time_t ParseIso8601(const std::string& value);
 
     struct HttpResponse {
         int statusCode = 0;
         std::string body;
     };
-
-    struct GitHubFileInfo {
-        bool requestSucceeded = false;
-        bool exists = false;
-        std::string sha;
-        std::string error;
-    };
-
-    GitHubFileInfo FetchFileInfo(const std::string& fileName);
-    bool UploadFile(const std::string& fileName, const std::filesystem::path& localPath);
-    bool DownloadFile(const std::string& fileName, const std::filesystem::path& localPath);
 
 #ifdef _WIN32
     std::wstring BuildPath(const std::string& relative) const;
@@ -64,6 +75,8 @@ private:
 
     std::wstring apiHost;
     std::wstring apiBasePath;
+    uint16_t apiPort = 443;
+    bool useHttps = true;
 #else
     std::string BuildUrl(const std::string& relative) const;
     bool SendCurlRequest(const std::string& method, const std::string& url, const std::string& body, HttpResponse& response);
@@ -79,8 +92,22 @@ private:
     mutable bool warnedMissingCredentials = false;
     std::chrono::steady_clock::time_point lastSyncAttempt;
     std::chrono::steady_clock::time_point lastSuccessfulSync;
+    std::chrono::steady_clock::time_point lastOutboundPacket;
+    std::chrono::steady_clock::time_point lastReconnectAttempt;
     bool initialPullPerformed = false;
     bool remoteUrlValid = false;
+    std::string authToken;
+    std::vector<LeaderboardEntry> pendingLeaderboardSubmissions;
+
+    std::thread initialPullThread;
+    std::thread keepAliveThread;
+    std::thread syncThread;
+    mutable std::mutex syncMutex;
+    std::atomic<ConnectionState> connectionState{ConnectionState::NotConfigured};
+    std::atomic<bool> keepAliveInFlight{false};
+    std::atomic<bool> syncInFlight{false};
+
+    std::filesystem::path failedSubmissionsPath;
 };
 
 #endif // RLSUDOKU_REMOTESYNCMANAGER_H

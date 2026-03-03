@@ -13,63 +13,8 @@ LeaderboardManager::LeaderboardManager() {
 }
 
 void LeaderboardManager::Load() {
-    try {
-        std::ifstream file(filename, std::ios::binary);
-        if (!file.good()) {
-            return; // No file yet, that's okay
-        }
-        
-        // Read entire file
-        file.seekg(0, std::ios::end);
-        size_t fileSize = file.tellg();
-        file.seekg(0, std::ios::beg);
-        
-        if (fileSize == 0) {
-            return;
-        }
-        
-        std::vector<uint8_t> data(fileSize);
-        file.read(reinterpret_cast<char*>(data.data()), fileSize);
-        file.close();
-        
-        // Decrypt
-        DecryptData(data);
-        
-        // Deserialize entries
-        entries.clear();
-        size_t offset = 0;
-        
-        // First 4 bytes: number of entries
-        if (offset + 4 > data.size()) {
-            std::cerr << "Leaderboard file corrupted: insufficient data for entry count" << std::endl;
-            return;
-        }
-        
-        uint32_t count;
-        std::memcpy(&count, data.data() + offset, 4);
-        offset += 4;
-        
-        // Sanity check: if count is unreasonably large, file is probably corrupted
-        if (count > 10000) {
-            std::cerr << "Leaderboard file corrupted: entry count " << count << " exceeds reasonable limit" << std::endl;
-            return;
-        }
-        
-        for (uint32_t i = 0; i < count && offset < data.size(); ++i) {
-            try {
-                entries.push_back(DeserializeEntry(data.data(), data.size(), offset));
-            } catch (const std::exception& e) {
-                std::cerr << "Error deserializing entry " << i << ": " << e.what() << std::endl;
-                break;
-            }
-        }
-        
-        std::cout << "Successfully loaded " << entries.size() << " leaderboard entries" << std::endl;
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Fatal error loading leaderboard: " << e.what() << std::endl;
-        entries.clear();
-    }
+    // Intentionally server-first: local file is backup-only and not loaded at startup.
+    entries.clear();
 }
 
 void LeaderboardManager::Save() {
@@ -144,6 +89,20 @@ void LeaderboardManager::AddEntry(const LeaderboardEntry& entry) {
             return a.completionTime < b.completionTime;
         });
     
+    Save();
+}
+
+void LeaderboardManager::ReplaceAllEntries(const std::vector<LeaderboardEntry>& newEntries) {
+    entries = newEntries;
+
+    std::sort(entries.begin(), entries.end(),
+        [](const LeaderboardEntry& a, const LeaderboardEntry& b) {
+            if (a.difficulty != b.difficulty) {
+                return a.difficulty < b.difficulty;
+            }
+            return a.completionTime < b.completionTime;
+        });
+
     Save();
 }
 
