@@ -43,6 +43,7 @@ public:
     void RecordMistake();
     void RecordGameCompleted(int difficulty, double completionTimeSeconds,
                              bool usedAutoCandidates, bool usedAutoCheck, bool usedConflictHighlight);
+    void RecordGameAbandoned(double elapsedSeconds);
     void RecordNumberPlaced(int difficulty);
     void RecordNumberCleared(int difficulty, bool hadValueBefore);
     void RecordAppActiveTime(double deltaSeconds);

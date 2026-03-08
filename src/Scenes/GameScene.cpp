@@ -130,6 +130,7 @@ GameScene::GameScene(int difficulty) : Scene(){
         loop_amount++;
         if(loop_amount >= 20){
             std::cout<<"Couldnt solve the sudoku or someting in 20 tries"<<std::endl;
+            RecordAbandonedRunStats();
             if (GameData::remoteSyncManager) {
                 GameData::remoteSyncManager->ForceSync();
             }
@@ -219,7 +220,8 @@ void GameScene::Setup() {
     bh = ch, bx = cx + cw + 10, by = cy;
     auto bb = new GenericButton("Back", Rectangle{bx,by,bw,bh});
     bb->fontSize = bh/2;
-    bb->OnClick = [](MouseEvent* event) {
+    bb->OnClick = [this](MouseEvent* event) {
+        RecordAbandonedRunStats();
         if (GameData::remoteSyncManager) {
             GameData::remoteSyncManager->ForceSync();
         }
@@ -398,6 +400,7 @@ void GameScene::SubmitToLeaderboard() {
             break;
         }
     }
+    runDurationAccounted = true;
     
     // Check settings used during run
     nlohmann::json autoCandidatesEnabled = GameData::storageManager->GetData("options_toggle_autocandidates");
@@ -441,6 +444,29 @@ void GameScene::SubmitToLeaderboard() {
             GameData::remoteSyncManager->QueueStatisticsUpdate();
         }
     }
+}
+
+void GameScene::RecordAbandonedRunStats() {
+    if (isPracticeRun || runDurationAccounted) {
+        return;
+    }
+
+    if (tileGrid && tileGrid->isFinished) {
+        return;
+    }
+
+    double elapsed = 0.0;
+    for (const auto& dr : drawableStack->drawables) {
+        if (auto* cw = dynamic_cast<ClockWidget*>(dr)) {
+            elapsed = cw->GetCurrentTime();
+            break;
+        }
+    }
+
+    if (GameData::statisticsManager) {
+        GameData::statisticsManager->RecordGameAbandoned(elapsed);
+    }
+    runDurationAccounted = true;
 }
 
 void GameScene::RecordGameStartStats() {

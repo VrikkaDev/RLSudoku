@@ -56,9 +56,11 @@ public:
     void SubmitToLeaderboard();
 
 private:
+    void RecordAbandonedRunStats();
     void RecordGameStartStats();
     void InitializeFromPreset();
     GameSaveable* gs = nullptr;
+    bool runDurationAccounted = false;
 };
 
 class GameSaveable : public Saveable{

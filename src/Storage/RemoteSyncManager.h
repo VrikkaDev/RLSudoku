@@ -41,6 +41,8 @@ public:
     void ForceSync();
     void OnExit();
     void PerformInitialPull();
+    bool RefreshLeaderboardNow();
+    bool RefreshLeaderboardForPlayerNow(const std::string& username);
     std::string GetConnectionStatusText() const;
     ConnectionState GetConnectionState() const;
 
@@ -58,7 +60,7 @@ private:
     bool EnsureAuthToken();
     bool PushLocalLeaderboardsToServer();
     bool PushMyStatsToServer();
-    bool PullGlobalLeaderboardFromServer();
+    bool PullGlobalLeaderboardFromServer(const std::string& usernameFilter = std::string());
     bool FetchMyStatsFromServer();
     std::string BuildRunId(const LeaderboardEntry& entry) const;
     static std::string TimeToIso8601(std::time_t value);

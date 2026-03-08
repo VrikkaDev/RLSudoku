@@ -139,6 +139,16 @@ void StatisticsManager::RecordGameCompleted(int difficulty, double completionTim
     Save();
 }
 
+void StatisticsManager::RecordGameAbandoned(double elapsedSeconds) {
+    if (elapsedSeconds <= 0.0) {
+        return;
+    }
+
+    // Play time should include both completed and discarded runs.
+    stats.totalTimeSeconds += std::max(0.0, elapsedSeconds);
+    Save();
+}
+
 void StatisticsManager::RecordNumberPlaced(int difficulty) {
     stats.totalNumbersPlaced++;
     int index = DifficultyToIndex(difficulty);

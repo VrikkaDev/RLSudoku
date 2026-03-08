@@ -13,6 +13,7 @@
 #include "GameData.h"
 #include "GameScene.h"
 #include "ReplayScene.h"
+#include "Storage/RemoteSyncManager.h"
 
 #include <algorithm>
 
@@ -174,7 +175,7 @@ void LeaderboardScene::RefreshEntries() {
     auto entries = GameData::leaderboardManager->GetTopEntries(
         selectedDifficultyMin, 
         selectedDifficultyMax, 
-        50,
+        500,
         false // Don't filter assisted at manager level
     );
 
@@ -204,6 +205,21 @@ void LeaderboardScene::RefreshEntries() {
     std::string selectedPlayer = "All";
     if (selectedPlayerFilter >= 0 && selectedPlayerFilter < static_cast<int>(playerFilters.size())) {
         selectedPlayer = playerFilters[selectedPlayerFilter];
+    }
+
+    if (GameData::remoteSyncManager) {
+        if (selectedPlayer == "All") {
+            GameData::remoteSyncManager->RefreshLeaderboardNow();
+        } else {
+            GameData::remoteSyncManager->RefreshLeaderboardForPlayerNow(selectedPlayer);
+        }
+
+        entries = GameData::leaderboardManager->GetTopEntries(
+            selectedDifficultyMin,
+            selectedDifficultyMax,
+            5000,
+            false
+        );
     }
     
     // Filter based on individual assist type toggles

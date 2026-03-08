@@ -45,6 +45,22 @@ std::string ToLowerCopy(std::string value) {
     return value;
 }
 
+std::string UrlEncodeComponent(const std::string& value) {
+    std::ostringstream encoded;
+    encoded << std::hex << std::uppercase;
+    for (unsigned char ch : value) {
+        if ((ch >= 'a' && ch <= 'z') ||
+            (ch >= 'A' && ch <= 'Z') ||
+            (ch >= '0' && ch <= '9') ||
+            ch == '-' || ch == '_' || ch == '.' || ch == '~') {
+            encoded << static_cast<char>(ch);
+        } else {
+            encoded << '%' << std::setw(2) << std::setfill('0') << static_cast<int>(ch);
+        }
+    }
+    return encoded.str();
+}
+
 #ifdef _WIN32
 std::wstring ToWide(const std::string& value) {
     return std::wstring(value.begin(), value.end());
@@ -511,6 +527,33 @@ std::string RemoteSyncManager::GetConnectionStatusText() const {
     }
 }
 
+bool RemoteSyncManager::RefreshLeaderboardNow() {
+    if (config.serverIp.empty() || config.username.empty()) {
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(syncMutex);
+    if (!EnsureAuthToken()) {
+        return false;
+    }
+    return PullGlobalLeaderboardFromServer();
+}
+
+bool RemoteSyncManager::RefreshLeaderboardForPlayerNow(const std::string& username) {
+    if (username.empty()) {
+        return RefreshLeaderboardNow();
+    }
+    if (config.serverIp.empty() || config.username.empty()) {
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(syncMutex);
+    if (!EnsureAuthToken()) {
+        return false;
+    }
+    return PullGlobalLeaderboardFromServer(username);
+}
+
 bool RemoteSyncManager::HasDirtyData() const {
     return leaderboardDirty || statisticsDirty;
 }
@@ -693,12 +736,16 @@ bool RemoteSyncManager::PushLocalLeaderboardsToServer() {
     return overallSuccess;
 }
 
-bool RemoteSyncManager::PullGlobalLeaderboardFromServer() {
+bool RemoteSyncManager::PullGlobalLeaderboardFromServer(const std::string& usernameFilter) {
     HttpResponse response;
+    std::string query = "api/scores/leaderboard/global/full?limit=5000";
+    if (!usernameFilter.empty()) {
+        query += "&username=" + UrlEncodeComponent(usernameFilter);
+    }
 #ifdef _WIN32
-    if (!SendRequest(L"GET", BuildPath("api/scores/leaderboard/global/full?limit=2000"), "", response)) {
+    if (!SendRequest(L"GET", BuildPath(query), "", response)) {
 #else
-    if (!SendCurlRequest("GET", BuildUrl("api/scores/leaderboard/global/full?limit=2000"), "", response)) {
+    if (!SendCurlRequest("GET", BuildUrl(query), "", response)) {
 #endif
         std::cout << "[RemoteSync] Failed to fetch global leaderboard from server." << std::endl;
         return false;
