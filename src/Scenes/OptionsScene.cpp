@@ -9,6 +9,7 @@
 #include "MainMenuScene.h"
 #include "Storage/StorageManager.h"
 #include "Scenes/Drawables/ConfigToggleButton.h"
+#include "Scenes/Drawables/GenericDropdown.h"
 
 OptionsScene::OptionsScene() : Scene(){
 
@@ -62,6 +63,14 @@ void OptionsScene::Setup() {
     hllb->fontSize = 20;
     drawableStack->AddDrawable(hllb);
 
+    // Dark mode option togglebutton
+    float dmw = 170, dmh = 50, dmx = 20, dmy = GetScreenHeight() - dmh*10;
+    auto dmb = new ConfigToggleButton("options_toggle_darkmode", "Dark mode", Rectangle{dmx, dmy, dmw, dmh});
+    dmb->tooltip = "Use a darker app theme for backgrounds and UI controls.";
+    dmb->fontSize = 20;
+    dmb->defaultValue = false;
+    drawableStack->AddDrawable(dmb);
+
     // Auto Candidates option togglebutton
     float aclw = 220, aclh = 50, aclx = 20, acly = GetScreenHeight() - aclh*9;
     auto aclb = new ConfigToggleButton("options_toggle_autocandidates", "Auto Candidates", Rectangle{aclx, acly, aclw, aclh});
@@ -77,6 +86,27 @@ void OptionsScene::Setup() {
     arclb->tooltip = "Automatically removes manual candidates from \nrelated tiles when you place a number.";
     arclb->fontSize = 20;
     drawableStack->AddDrawable(arclb);
+
+    // Tile selection trigger dropdown (mouse down / mouse up / both)
+    std::map<const char*, int> tileSelectMap = {
+        {"Tile Select: Mouse Down", 0},
+        {"Tile Select: Mouse Up", 1},
+        {"Tile Select: Both", 2}
+    };
+    float tsdw = 300, tsdh = 50, tsdx = 350, tsdy = GetScreenHeight() - tsdh*5;
+    auto tsdb = new GenericDropdown(tileSelectMap, "options_dropdown_tileselecttrigger", Rectangle{tsdx, tsdy, tsdw, tsdh});
+    tsdb->fontSize = 20;
+
+    // Default to mouse-up behavior for fresh installs.
+    int defaultIndex = 0;
+    for (auto it = tileSelectMap.begin(); it != tileSelectMap.end(); ++it, ++defaultIndex) {
+        if (it->second == 1) {
+            tsdb->selectedText = defaultIndex;
+            break;
+        }
+    }
+
+    drawableStack->AddDrawable(tsdb);
 
 }
 

@@ -21,6 +21,8 @@
 
 namespace {
 
+constexpr const char* kClientVersion = "1.0.0";
+
 std::string BuildRemoteUrl(const std::string& serverIp, int serverPort, bool useHttps) {
     const std::string host = serverIp.empty() ? std::string("127.0.0.1") : serverIp;
     const int port = (serverPort > 0 && serverPort <= 65535) ? serverPort : 8000;
@@ -244,6 +246,13 @@ void RemoteSyncManager::UpdateConfig(const RemoteSyncConfig& newConfig) {
 }
 
 void RemoteSyncManager::QueueLeaderboardUpdate() {
+    requestedLeaderboardUsernameFilter.clear();
+    leaderboardDirty = true;
+    StartSyncAsync();
+}
+
+void RemoteSyncManager::QueueLeaderboardRefreshForPlayer(const std::string& username) {
+    requestedLeaderboardUsernameFilter = username;
     leaderboardDirty = true;
     StartSyncAsync();
 }
@@ -415,6 +424,9 @@ void RemoteSyncManager::StartKeepAliveAsync() {
         {
             std::lock_guard<std::mutex> lock(syncMutex);
             if (EnsureAuthToken()) {
+                if (!versionPolicyChecked) {
+                    FetchClientPolicyFromServer();
+                }
                 HttpResponse response;
 #ifdef _WIN32
                 ok = SendRequest(L"GET", BuildPath("api/auth/me"), "", response) && response.statusCode == 200;
@@ -478,6 +490,7 @@ void RemoteSyncManager::PerformInitialPull() {
 
     initialPullPerformed = true;
     warnedMissingCredentials = false;
+    FetchClientPolicyFromServer();
     PullGlobalLeaderboardFromServer();
     FetchMyStatsFromServer();
 }
@@ -509,6 +522,35 @@ void RemoteSyncManager::LogFailedSubmission(const nlohmann::json& payload, int s
 
 RemoteSyncManager::ConnectionState RemoteSyncManager::GetConnectionState() const {
     return connectionState.load();
+}
+
+std::string RemoteSyncManager::GetClientVersion() const {
+    return std::string(kClientVersion);
+}
+
+bool RemoteSyncManager::IsVersionPolicyChecked() const {
+    std::lock_guard<std::mutex> lock(syncMutex);
+    return versionPolicyChecked;
+}
+
+bool RemoteSyncManager::HasUpdateAvailable() const {
+    std::lock_guard<std::mutex> lock(syncMutex);
+    return updateAvailable;
+}
+
+bool RemoteSyncManager::IsUpdateRequired() const {
+    std::lock_guard<std::mutex> lock(syncMutex);
+    return updateRequired;
+}
+
+std::string RemoteSyncManager::GetVersionPolicyMessage() const {
+    std::lock_guard<std::mutex> lock(syncMutex);
+    return versionPolicyMessage;
+}
+
+std::string RemoteSyncManager::GetUpdateDownloadUrl() const {
+    std::lock_guard<std::mutex> lock(syncMutex);
+    return updateDownloadUrl;
 }
 
 std::string RemoteSyncManager::GetConnectionStatusText() const {
@@ -594,8 +636,10 @@ bool RemoteSyncManager::PerformSync() {
     bool success = true;
 
     if (leaderboardDirty) {
+        const std::string pullFilter = requestedLeaderboardUsernameFilter;
+        requestedLeaderboardUsernameFilter.clear();
         bool pushed = PushLocalLeaderboardsToServer();
-        bool pulled = PullGlobalLeaderboardFromServer();
+        bool pulled = PullGlobalLeaderboardFromServer(pullFilter);
         if (pushed && pulled) {
             leaderboardDirty = false;
         } else {
@@ -808,6 +852,38 @@ bool RemoteSyncManager::PullGlobalLeaderboardFromServer(const std::string& usern
         return true;
     } catch (const std::exception& e) {
         std::cout << "[RemoteSync] Failed to parse global leaderboard response: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+bool RemoteSyncManager::FetchClientPolicyFromServer() {
+    HttpResponse response;
+    std::string query = std::string("api/meta/client-policy?client_version=") + UrlEncodeComponent(kClientVersion);
+#ifdef _WIN32
+    bool sent = SendRequest(L"GET", BuildPath(query), "", response);
+#else
+    bool sent = SendCurlRequest("GET", BuildUrl(query), "", response);
+#endif
+
+    if (!sent || response.statusCode != 200) {
+        return false;
+    }
+
+    try {
+        auto data = nlohmann::json::parse(response.body);
+        if (!data.is_object()) {
+            return false;
+        }
+
+        latestServerVersion = data.value("latest_version", std::string(""));
+        minimumSupportedVersion = data.value("minimum_supported_version", std::string(""));
+        updateAvailable = data.value("update_available", false);
+        updateRequired = data.value("update_required", false);
+        versionPolicyMessage = data.value("message", std::string(""));
+        updateDownloadUrl = data.value("download_url", std::string(""));
+        versionPolicyChecked = true;
+        return true;
+    } catch (const std::exception&) {
         return false;
     }
 }
@@ -1054,7 +1130,8 @@ bool RemoteSyncManager::SendRequest(const std::wstring& method, const std::wstri
 
     lastOutboundPacket = std::chrono::steady_clock::now();
 
-    std::wstring headers = L"User-Agent: RLSudoku/1.0\r\nAccept: application/json\r\n";
+    std::wstring headers = L"User-Agent: RLSudoku/" + ToWide(kClientVersion) + L"\r\nAccept: application/json\r\n";
+    headers += L"X-Client-Version: " + ToWide(kClientVersion) + L"\r\n";
     if (!authToken.empty()) {
         headers += L"Authorization: Bearer " + ToWide(authToken) + L"\r\n";
     }
@@ -1160,7 +1237,8 @@ bool RemoteSyncManager::SendCurlRequest(const std::string& method, const std::st
 
     std::string buffer;
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "RLSudoku/1.0");
+    std::string userAgent = std::string("RLSudoku/") + kClientVersion;
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, userAgent.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](char* ptr, size_t size, size_t nmemb, void* userdata) -> size_t {
         auto* out = static_cast<std::string*>(userdata);
         out->append(ptr, size * nmemb);
@@ -1170,6 +1248,8 @@ bool RemoteSyncManager::SendCurlRequest(const std::string& method, const std::st
 
     struct curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Accept: application/json");
+    std::string versionHeader = std::string("X-Client-Version: ") + kClientVersion;
+    headers = curl_slist_append(headers, versionHeader.c_str());
     if (!authToken.empty()) {
         std::string auth = "Authorization: Bearer " + authToken;
         headers = curl_slist_append(headers, auth.c_str());

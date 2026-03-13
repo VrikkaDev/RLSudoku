@@ -12,6 +12,16 @@
 #include "Storage/StatisticsManager.h"
 #include "Storage/RemoteSyncManager.h"
 
+namespace {
+bool IsDarkModeEnabled() {
+    if (!GameData::storageManager) {
+        return false;
+    }
+    nlohmann::json mode = GameData::storageManager->GetData("options_toggle_darkmode");
+    return mode.contains("value") && mode["value"].is_boolean() && mode["value"];
+}
+}
+
 void Game::Run() {
 
     // Load configs
@@ -32,7 +42,11 @@ void Game::Run() {
     {
 
         BeginDrawing();
-        ClearBackground(CLITERAL(Color){ 220, 220, 220, 255 } );
+        if (IsDarkModeEnabled()) {
+            ClearBackground(CLITERAL(Color){ 28, 28, 34, 255 });
+        } else {
+            ClearBackground(CLITERAL(Color){ 220, 220, 220, 255 });
+        }
         EndDrawing();
 
         mousePoint = GetMousePosition();

@@ -42,7 +42,8 @@ void LeaderboardScene::Setup() {
     
     difficultyDropdown = new GenericDropdown(difficultyMap, "leaderboard_difficulty_filter", Rectangle{dropdownX, dropdownY, dropdownW, dropdownH});
     difficultyDropdown->fontSize = 20;
-    drawableStack->AddDrawable(difficultyDropdown);
+    // Add later so draw on top
+    //drawableStack->AddDrawable(difficultyDropdown);
     
     // Assist filter buttons - toggle individual assist types
     float filterBtnW = 120, filterBtnH = 50;
@@ -161,6 +162,8 @@ void LeaderboardScene::Setup() {
         }
     };
     drawableStack->AddDrawable(tryPuzzleButton);
+
+    drawableStack->AddDrawable(difficultyDropdown);
     
     // Initial load
     RefreshEntries();
@@ -209,17 +212,10 @@ void LeaderboardScene::RefreshEntries() {
 
     if (GameData::remoteSyncManager) {
         if (selectedPlayer == "All") {
-            GameData::remoteSyncManager->RefreshLeaderboardNow();
+            GameData::remoteSyncManager->QueueLeaderboardUpdate();
         } else {
-            GameData::remoteSyncManager->RefreshLeaderboardForPlayerNow(selectedPlayer);
+            GameData::remoteSyncManager->QueueLeaderboardRefreshForPlayer(selectedPlayer);
         }
-
-        entries = GameData::leaderboardManager->GetTopEntries(
-            selectedDifficultyMin,
-            selectedDifficultyMax,
-            5000,
-            false
-        );
     }
     
     // Filter based on individual assist type toggles

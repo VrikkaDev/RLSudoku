@@ -19,6 +19,7 @@ nlohmann::json StatisticsManager::ExportJson() const {
     root["totalGamesStarted"] = stats.totalGamesStarted;
     root["totalGamesCompleted"] = stats.totalGamesCompleted;
     root["totalTimeSeconds"] = stats.totalTimeSeconds;
+    root["totalCompletedTimeSeconds"] = stats.totalCompletedTimeSeconds;
     root["totalAppTimeSeconds"] = stats.totalAppTimeSeconds;
     root["totalMistakes"] = stats.totalMistakes;
     root["totalNumbersPlaced"] = stats.totalNumbersPlaced;
@@ -35,6 +36,7 @@ nlohmann::json StatisticsManager::ExportJson() const {
         d["gamesStarted"] = diff.gamesStarted;
         d["gamesCompleted"] = diff.gamesCompleted;
         d["totalTimeSeconds"] = diff.totalTimeSeconds;
+        d["completedTimeSeconds"] = diff.completedTimeSeconds;
         d["bestTimeSeconds"] = diff.bestTimeSeconds;
         d["numbersPlaced"] = diff.numbersPlaced;
         d["numbersCleared"] = diff.numbersCleared;
@@ -52,6 +54,7 @@ bool StatisticsManager::ImportJson(const nlohmann::json& root) {
         imported.totalGamesStarted = root.value("totalGamesStarted", 0);
         imported.totalGamesCompleted = root.value("totalGamesCompleted", 0);
         imported.totalTimeSeconds = root.value("totalTimeSeconds", 0.0);
+        imported.totalCompletedTimeSeconds = root.value("totalCompletedTimeSeconds", imported.totalTimeSeconds);
         imported.totalAppTimeSeconds = root.value("totalAppTimeSeconds", 0.0);
         imported.totalMistakes = root.value("totalMistakes", 0);
         imported.totalNumbersPlaced = root.value("totalNumbersPlaced", 0);
@@ -69,6 +72,7 @@ bool StatisticsManager::ImportJson(const nlohmann::json& root) {
                 imported.difficulties[i].gamesStarted = d.value("gamesStarted", 0);
                 imported.difficulties[i].gamesCompleted = d.value("gamesCompleted", 0);
                 imported.difficulties[i].totalTimeSeconds = d.value("totalTimeSeconds", 0.0);
+                imported.difficulties[i].completedTimeSeconds = d.value("completedTimeSeconds", imported.difficulties[i].totalTimeSeconds);
                 imported.difficulties[i].bestTimeSeconds = d.value("bestTimeSeconds", 0.0);
                 imported.difficulties[i].numbersPlaced = d.value("numbersPlaced", 0);
                 imported.difficulties[i].numbersCleared = d.value("numbersCleared", 0);
@@ -111,13 +115,17 @@ void StatisticsManager::RecordMistake() {
 
 void StatisticsManager::RecordGameCompleted(int difficulty, double completionTimeSeconds,
                                             bool usedAutoCandidates, bool usedAutoCheck, bool usedConflictHighlight) {
+    const double clampedTime = std::max(0.0, completionTimeSeconds);
+
     stats.totalGamesCompleted++;
-    stats.totalTimeSeconds += std::max(0.0, completionTimeSeconds);
+    stats.totalTimeSeconds += clampedTime;
+    stats.totalCompletedTimeSeconds += clampedTime;
 
     int index = DifficultyToIndex(difficulty);
     auto& diffStats = stats.difficulties[index];
     diffStats.gamesCompleted++;
-    diffStats.totalTimeSeconds += std::max(0.0, completionTimeSeconds);
+    diffStats.totalTimeSeconds += clampedTime;
+    diffStats.completedTimeSeconds += clampedTime;
 
     if (completionTimeSeconds > 0.0) {
         if (diffStats.bestTimeSeconds <= 0.0 || completionTimeSeconds < diffStats.bestTimeSeconds) {

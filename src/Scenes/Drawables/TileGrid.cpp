@@ -24,6 +24,14 @@ std::vector<int> ValuesFromMask(uint16_t mask) {
     }
     return values;
 }
+
+bool IsDarkModeEnabled() {
+    if (!GameData::storageManager) {
+        return false;
+    }
+    nlohmann::json mode = GameData::storageManager->GetData("options_toggle_darkmode");
+    return mode.contains("value") && mode["value"].is_boolean() && mode["value"];
+}
 }
 
 TileGrid::TileGrid() : Drawable(){
@@ -54,26 +62,56 @@ int posToIndex(Vector2 pos) {
 
 void TileGrid::OnStart() {
 
-    OnClick = [this](MouseEvent* event){
+    auto readTileSelectTriggerMode = []() {
+        int mode = 1; // Default: select on mouse up
+        nlohmann::json modeData = GameData::storageManager->GetData("options_dropdown_tileselecttrigger");
+        if (modeData.is_object()) {
+            if (modeData.contains("value") && modeData["value"].is_number_integer()) {
+                mode = modeData["value"];
+            } else if (modeData.contains("selected") && modeData["selected"].is_number_integer()) {
+                mode = modeData["selected"];
+            }
+        }
+
+        if (mode < 0 || mode > 2) {
+            mode = 1;
+        }
+        return mode;
+    };
+
+    auto handleSelectionMouseEvent = [this, readTileSelectTriggerMode](MouseEvent* event) {
         if(isPaused){
-            // Send resume event
-            auto* ge = new GameEvent(3, "0");
-            GameData::currentScene->eventDispatcher->AddEvent(ge);
+            // Resume on release for consistent UX.
+            if (event->EventType == 2) {
+                auto* ge = new GameEvent(3, "0");
+                GameData::currentScene->eventDispatcher->AddEvent(ge);
+            }
             return;
         }
+
+        int mode = readTileSelectTriggerMode();
+        bool triggerOnPress = (mode == 0 || mode == 2);
+        bool triggerOnRelease = (mode == 1 || mode == 2);
+        bool shouldSelect = (event->EventType == 1 && triggerOnPress) || (event->EventType == 2 && triggerOnRelease);
+        if (!shouldSelect) {
+            return;
+        }
+
         for (auto* dr : children){
             if (!CheckCollisionPointRec(event->MousePosition, dr->GetRectangle())){
                 continue;
             }
 
-            // EventType 2 is RELEASED
-            if (event->EventType == 2){
-                dr->OnClick(event);
-            }
+            dr->OnClick(event);
+            break;
         }
     };
 
-    OnEvent = [this](Event* event){
+    OnClick = [this, handleSelectionMouseEvent](MouseEvent* event){
+        handleSelectionMouseEvent(event);
+    };
+
+    OnEvent = [this, handleSelectionMouseEvent](Event* event){
         if (auto* ke = dynamic_cast<KeyboardEvent*>(event)){
 
             if(ke->EventType != 1){
@@ -114,6 +152,11 @@ void TileGrid::OnStart() {
                 }
                 // To refresh "options_toggle_hlsamenumbers"
                 SelectTile(selectedTile);
+            }
+        }else if (auto* me = dynamic_cast<MouseEvent*>(event)) {
+            // Mouse press events are not dispatched via OnClick in DrawableStack.
+            if (me->EventType == 1) {
+                handleSelectionMouseEvent(me);
             }
         }else if (auto* ge = dynamic_cast<GameEvent*>(event)){
             if(ge->EventType == 3){ // EventType 3 == pause event
@@ -201,6 +244,16 @@ void TileGrid::OnStart() {
 }
 
 void TileGrid::Draw() {
+    if (IsDarkModeEnabled()) {
+        if (color.r == DARKGRAY.r && color.g == DARKGRAY.g && color.b == DARKGRAY.b && color.a == DARKGRAY.a) {
+            color = CLITERAL(Color){110, 110, 122, 255};
+        }
+    } else {
+        if (color.r == 110 && color.g == 110 && color.b == 122 && color.a == 255) {
+            color = DARKGRAY;
+        }
+    }
+
     DrawRectangle(x, y, width+2, height+2, color);
 
     // Draw children aswell
@@ -210,9 +263,12 @@ void TileGrid::Draw() {
 
     // Draw pause screen
     if(isPaused){
-        DrawRectangle(x, y, width-1, height-1, CLITERAL(Color){ 150, 150, 150, 200 });
-        DrawTextBC("PAUSED", x, y-20, 48, width, height, color);
-        DrawTextBC("Click to resume!", x, y + 20, 32, width, height, color);
+        const bool darkMode = IsDarkModeEnabled();
+        Color overlay = darkMode ? CLITERAL(Color){35, 35, 42, 235} : CLITERAL(Color){150, 150, 150, 255};
+        Color overlayText = darkMode ? CLITERAL(Color){225, 225, 232, 255} : color;
+        DrawRectangle(x, y, width-1, height-1, overlay);
+        DrawTextBC("PAUSED", x, y-20, 48, width, height, overlayText);
+        DrawTextBC("Click to resume!", x, y + 20, 32, width, height, overlayText);
     }
 }
 

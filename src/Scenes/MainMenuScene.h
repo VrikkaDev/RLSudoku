@@ -18,6 +18,8 @@ public:
 
 private:
     class TextWidget* syncStatusText = nullptr;
+    class TextWidget* versionStatusText = nullptr;
+    class GenericButton* updateButton = nullptr;
 };
 
 

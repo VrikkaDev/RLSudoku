@@ -34,6 +34,7 @@ public:
     void UpdateConfig(const RemoteSyncConfig& newConfig);
 
     void QueueLeaderboardUpdate();
+    void QueueLeaderboardRefreshForPlayer(const std::string& username);
     void QueueLeaderboardSubmission(const LeaderboardEntry& entry);
     void QueueStatisticsUpdate();
 
@@ -43,6 +44,12 @@ public:
     void PerformInitialPull();
     bool RefreshLeaderboardNow();
     bool RefreshLeaderboardForPlayerNow(const std::string& username);
+    std::string GetClientVersion() const;
+    bool IsVersionPolicyChecked() const;
+    bool HasUpdateAvailable() const;
+    bool IsUpdateRequired() const;
+    std::string GetVersionPolicyMessage() const;
+    std::string GetUpdateDownloadUrl() const;
     std::string GetConnectionStatusText() const;
     ConnectionState GetConnectionState() const;
 
@@ -62,6 +69,7 @@ private:
     bool PushMyStatsToServer();
     bool PullGlobalLeaderboardFromServer(const std::string& usernameFilter = std::string());
     bool FetchMyStatsFromServer();
+    bool FetchClientPolicyFromServer();
     std::string BuildRunId(const LeaderboardEntry& entry) const;
     static std::string TimeToIso8601(std::time_t value);
     static std::time_t ParseIso8601(const std::string& value);
@@ -97,8 +105,16 @@ private:
     std::chrono::steady_clock::time_point lastOutboundPacket;
     std::chrono::steady_clock::time_point lastReconnectAttempt;
     bool initialPullPerformed = false;
+    bool versionPolicyChecked = false;
+    bool updateAvailable = false;
+    bool updateRequired = false;
+    std::string versionPolicyMessage;
+    std::string updateDownloadUrl;
+    std::string latestServerVersion;
+    std::string minimumSupportedVersion;
     bool remoteUrlValid = false;
     std::string authToken;
+    std::string requestedLeaderboardUsernameFilter;
     std::vector<LeaderboardEntry> pendingLeaderboardSubmissions;
 
     std::thread initialPullThread;

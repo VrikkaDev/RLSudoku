@@ -5,6 +5,17 @@
 #include "GenericDropdown.h"
 #include "GameData.h"
 #include "Scenes/Scene.h"
+#include "Storage/StorageManager.h"
+
+namespace {
+bool IsDarkModeEnabled() {
+    if (!GameData::storageManager) {
+        return false;
+    }
+    nlohmann::json mode = GameData::storageManager->GetData("options_toggle_darkmode");
+    return mode.contains("value") && mode["value"].is_boolean() && mode["value"];
+}
+}
 
 GenericDropdown::GenericDropdown() : Drawable(), Saveable("generic_dropdown"){
     width = 300;
@@ -28,6 +39,7 @@ void GenericDropdown::OnStart() {
         isOpened = !isOpened;
 
         if(isOpened){
+            const bool darkMode = IsDarkModeEnabled();
             for (int i = 1; i <= texts.size(); i++) {
                 auto r = Rectangle{(float)x, (float)y + height * i, (float)width, (float)height};
                 // Get the correct text
@@ -36,9 +48,9 @@ void GenericDropdown::OnStart() {
                 auto* gb = new GenericButton(it->first, r);
                 gb->parent = this;
                 gb->fontSize = fontSize;
-                gb->color = GRAY;
-                gb->hoverColor = DARKGRAY;
-                gb->pressColor = LIGHTGRAY;
+                gb->color = darkMode ? CLITERAL(Color){55, 55, 62, 255} : GRAY;
+                gb->hoverColor = darkMode ? CLITERAL(Color){75, 75, 84, 255} : DARKGRAY;
+                gb->pressColor = darkMode ? CLITERAL(Color){95, 95, 106, 255} : LIGHTGRAY;
                 gb->OnClick = [gb, i](MouseEvent* event){
                     if (auto* gd = dynamic_cast<GenericDropdown*>(gb->parent)){
                         gd->selectedText = i-1;
@@ -71,6 +83,34 @@ void GenericDropdown::OnStart() {
 }
 
 void GenericDropdown::Draw() {
+    if (IsDarkModeEnabled()) {
+        if (color.r == GRAY.r && color.g == GRAY.g && color.b == GRAY.b && color.a == GRAY.a) {
+            color = CLITERAL(Color){55, 55, 62, 255};
+        }
+        if (hoverColor.r == DARKGRAY.r && hoverColor.g == DARKGRAY.g && hoverColor.b == DARKGRAY.b && hoverColor.a == DARKGRAY.a) {
+            hoverColor = CLITERAL(Color){75, 75, 84, 255};
+        }
+        if (pressColor.r == LIGHTGRAY.r && pressColor.g == LIGHTGRAY.g && pressColor.b == LIGHTGRAY.b && pressColor.a == LIGHTGRAY.a) {
+            pressColor = CLITERAL(Color){95, 95, 106, 255};
+        }
+        if (triangleColor.r == WHITE.r && triangleColor.g == WHITE.g && triangleColor.b == WHITE.b && triangleColor.a == WHITE.a) {
+            triangleColor = CLITERAL(Color){230, 230, 236, 255};
+        }
+    } else {
+        if (color.r == 55 && color.g == 55 && color.b == 62 && color.a == 255) {
+            color = GRAY;
+        }
+        if (hoverColor.r == 75 && hoverColor.g == 75 && hoverColor.b == 84 && hoverColor.a == 255) {
+            hoverColor = DARKGRAY;
+        }
+        if (pressColor.r == 95 && pressColor.g == 95 && pressColor.b == 106 && pressColor.a == 255) {
+            pressColor = LIGHTGRAY;
+        }
+        if (triangleColor.r == 230 && triangleColor.g == 230 && triangleColor.b == 236 && triangleColor.a == 255) {
+            triangleColor = WHITE;
+        }
+    }
+
     bool isHovering = CheckCollisionPointRec(GetMousePosition(), GetRectangle());
     bool isPressed = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
 

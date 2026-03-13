@@ -20,9 +20,21 @@ public:
     nlohmann::json GetJson() override{
         nlohmann::json json;
         json["selected"] = selectedText;
+        json["value"] = GetSelectedValue();
         return json;
     };
     void Load(const nlohmann::json& data) override{
+        if(data.contains("value") && data["value"].is_number_integer()){
+            const int wantedValue = data["value"];
+            int index = 0;
+            for (auto it = texts.begin(); it != texts.end(); ++it, ++index) {
+                if (it->second == wantedValue) {
+                    selectedText = index;
+                    return;
+                }
+            }
+        }
+
         if(data.contains("selected")){
             selectedText = data["selected"];
         }

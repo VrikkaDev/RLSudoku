@@ -94,12 +94,38 @@ void MainMenuScene::Setup() {
     syncStatusText = new TextWidget("Sync: Connecting...", 16, statusY, 20, DARKGRAY, false);
     drawableStack->AddDrawable(syncStatusText);
 
+    int versionY = statusY - 24;
+    versionStatusText = new TextWidget("Version: checking policy...", 16, versionY, 18, DARKGRAY, false);
+    drawableStack->AddDrawable(versionStatusText);
+
+    float updateW = 220.0f;
+    float updateH = 42.0f;
+    float updateX = GetScreenWidth() - updateW - 16.0f;
+    float updateY = static_cast<float>(versionY - 8);
+    updateButton = new GenericButton("No Update", Rectangle{updateX, updateY, updateW, updateH});
+    updateButton->fontSize = 20;
+    updateButton->enabled = false;
+    updateButton->color = Color{60, 60, 60, 255};
+    updateButton->hoverColor = updateButton->color;
+    updateButton->pressColor = updateButton->color;
+    updateButton->OnClick = [](MouseEvent* event) {
+        if (!GameData::remoteSyncManager) {
+            return;
+        }
+
+        const std::string url = GameData::remoteSyncManager->GetUpdateDownloadUrl();
+        if (!url.empty()) {
+            OpenURL(url.c_str());
+        }
+    };
+    drawableStack->AddDrawable(updateButton);
+
 }
 
 void MainMenuScene::OnUpdate() {
     Scene::OnUpdate();
 
-    if (!syncStatusText) {
+    if (!syncStatusText || !versionStatusText || !updateButton) {
         return;
     }
 
@@ -126,9 +152,67 @@ void MainMenuScene::OnUpdate() {
                 syncStatusText->color = MAROON;
                 break;
         }
+
+        if (!GameData::remoteSyncManager->IsVersionPolicyChecked()) {
+            versionStatusText->text = "Version: checking policy...";
+            versionStatusText->color = DARKGRAY;
+            updateButton->enabled = false;
+            updateButton->text = "No Update";
+            Color disabledColor{60, 60, 60, 255};
+            updateButton->color = disabledColor;
+            updateButton->hoverColor = disabledColor;
+            updateButton->pressColor = disabledColor;
+            return;
+        }
+
+        const bool required = GameData::remoteSyncManager->IsUpdateRequired();
+        const bool available = GameData::remoteSyncManager->HasUpdateAvailable();
+        const std::string message = GameData::remoteSyncManager->GetVersionPolicyMessage();
+        const std::string downloadUrl = GameData::remoteSyncManager->GetUpdateDownloadUrl();
+
+        if (required) {
+            versionStatusText->text = "Update required: " + message;
+            versionStatusText->color = MAROON;
+            updateButton->text = "Update Required";
+            updateButton->enabled = !downloadUrl.empty();
+            Color active = Color{160, 40, 40, 255};
+            Color hover = Color{200, 60, 60, 255};
+            Color disabled = Color{90, 40, 40, 255};
+            updateButton->color = updateButton->enabled ? active : disabled;
+            updateButton->hoverColor = updateButton->enabled ? hover : disabled;
+            updateButton->pressColor = updateButton->enabled ? MAROON : disabled;
+        } else if (available) {
+            versionStatusText->text = "Update available: " + message;
+            versionStatusText->color = ORANGE;
+            updateButton->text = "Download Update";
+            updateButton->enabled = !downloadUrl.empty();
+            Color active = Color{180, 110, 20, 255};
+            Color hover = Color{220, 140, 30, 255};
+            Color disabled = Color{90, 70, 40, 255};
+            updateButton->color = updateButton->enabled ? active : disabled;
+            updateButton->hoverColor = updateButton->enabled ? hover : disabled;
+            updateButton->pressColor = updateButton->enabled ? ORANGE : disabled;
+        } else {
+            versionStatusText->text = "Version " + GameData::remoteSyncManager->GetClientVersion() + " is up to date.";
+            versionStatusText->color = GREEN;
+            updateButton->enabled = false;
+            updateButton->text = "Up To Date";
+            Color disabledColor{40, 90, 40, 255};
+            updateButton->color = disabledColor;
+            updateButton->hoverColor = disabledColor;
+            updateButton->pressColor = disabledColor;
+        }
     } else {
         syncStatusText->text = "Sync: Unavailable";
         syncStatusText->color = MAROON;
+        versionStatusText->text = "Version: policy unavailable";
+        versionStatusText->color = MAROON;
+        updateButton->enabled = false;
+        updateButton->text = "No Update";
+        Color disabledColor{60, 60, 60, 255};
+        updateButton->color = disabledColor;
+        updateButton->hoverColor = disabledColor;
+        updateButton->pressColor = disabledColor;
     }
 }
 

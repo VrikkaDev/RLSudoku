@@ -12,6 +12,16 @@
 #include <set>
 #include <algorithm>
 
+namespace {
+bool IsDarkModeEnabled() {
+    if (!GameData::storageManager) {
+        return false;
+    }
+    nlohmann::json mode = GameData::storageManager->GetData("options_toggle_darkmode");
+    return mode.contains("value") && mode["value"].is_boolean() && mode["value"];
+}
+}
+
 TileButton::TileButton() : Drawable() {
 
 }
@@ -53,6 +63,41 @@ void TileButton::OnStart() {
 }
 
 void TileButton::Draw() {
+    const bool darkMode = IsDarkModeEnabled();
+    if (darkMode) {
+        if (color.r == LIGHTGRAY.r && color.g == LIGHTGRAY.g && color.b == LIGHTGRAY.b && color.a == LIGHTGRAY.a) {
+            color = CLITERAL(Color){45, 45, 52, 255};
+        }
+        if (selectedColor.r == DARKGRAY.r && selectedColor.g == DARKGRAY.g && selectedColor.b == DARKGRAY.b && selectedColor.a == DARKGRAY.a) {
+            selectedColor = CLITERAL(Color){92, 92, 104, 255};
+        }
+        if (gridlineColor.r == GRAY.r && gridlineColor.g == GRAY.g && gridlineColor.b == GRAY.b && gridlineColor.a == GRAY.a) {
+            gridlineColor = CLITERAL(Color){70, 70, 80, 255};
+        }
+        if (textColor2.r == DARKGRAY.r && textColor2.g == DARKGRAY.g && textColor2.b == DARKGRAY.b && textColor2.a == DARKGRAY.a) {
+            textColor2 = CLITERAL(Color){205, 205, 214, 255};
+        }
+        if (textColor3.r == BLACK.r && textColor3.g == BLACK.g && textColor3.b == BLACK.b && textColor3.a == BLACK.a) {
+            textColor3 = CLITERAL(Color){238, 238, 244, 255};
+        }
+    } else {
+        if (color.r == 45 && color.g == 45 && color.b == 52 && color.a == 255) {
+            color = LIGHTGRAY;
+        }
+        if (selectedColor.r == 92 && selectedColor.g == 92 && selectedColor.b == 104 && selectedColor.a == 255) {
+            selectedColor = DARKGRAY;
+        }
+        if (gridlineColor.r == 70 && gridlineColor.g == 70 && gridlineColor.b == 80 && gridlineColor.a == 255) {
+            gridlineColor = GRAY;
+        }
+        if (textColor2.r == 205 && textColor2.g == 205 && textColor2.b == 214 && textColor2.a == 255) {
+            textColor2 = DARKGRAY;
+        }
+        if (textColor3.r == 238 && textColor3.g == 238 && textColor3.b == 244 && textColor3.a == 255) {
+            textColor3 = BLACK;
+        }
+    }
+
     bool isHovering = CheckCollisionPointRec(GetMousePosition(), GetRectangle());
     bool isPressed = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
 

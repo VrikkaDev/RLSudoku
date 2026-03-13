@@ -31,6 +31,30 @@ void ConfigToggleButton::OnStart() {
 }
 
 void ConfigToggleButton::Draw() {
+    nlohmann::json darkMode = GameData::storageManager->GetData("options_toggle_darkmode");
+    bool isDarkMode = darkMode.contains("value") && darkMode["value"].is_boolean() && darkMode["value"];
+    if (isDarkMode) {
+        if (color.r == GRAY.r && color.g == GRAY.g && color.b == GRAY.b && color.a == GRAY.a) {
+            color = CLITERAL(Color){55, 55, 62, 255};
+        }
+        if (hoverColor.r == DARKGRAY.r && hoverColor.g == DARKGRAY.g && hoverColor.b == DARKGRAY.b && hoverColor.a == DARKGRAY.a) {
+            hoverColor = CLITERAL(Color){75, 75, 84, 255};
+        }
+        if (pressColor.r == LIGHTGRAY.r && pressColor.g == LIGHTGRAY.g && pressColor.b == LIGHTGRAY.b && pressColor.a == LIGHTGRAY.a) {
+            pressColor = CLITERAL(Color){95, 95, 106, 255};
+        }
+    } else {
+        if (color.r == 55 && color.g == 55 && color.b == 62 && color.a == 255) {
+            color = GRAY;
+        }
+        if (hoverColor.r == 75 && hoverColor.g == 75 && hoverColor.b == 84 && hoverColor.a == 255) {
+            hoverColor = DARKGRAY;
+        }
+        if (pressColor.r == 95 && pressColor.g == 95 && pressColor.b == 106 && pressColor.a == 255) {
+            pressColor = LIGHTGRAY;
+        }
+    }
+
     bool isHovering = CheckCollisionPointRec(GetMousePosition(), GetRectangle());
     bool isPressed = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
 

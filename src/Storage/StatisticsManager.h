@@ -11,7 +11,8 @@
 struct DifficultyStats {
     int gamesStarted = 0;
     int gamesCompleted = 0;
-    double totalTimeSeconds = 0.0;
+    double totalTimeSeconds = 0.0; // Play time for this difficulty (completed + abandoned)
+    double completedTimeSeconds = 0.0; // Sum of completion times for finished runs only
     double bestTimeSeconds = 0.0; // 0 indicates no best time yet
     int numbersPlaced = 0;
     int numbersCleared = 0;
@@ -20,7 +21,8 @@ struct DifficultyStats {
 struct StatisticsData {
     int totalGamesStarted = 0;
     int totalGamesCompleted = 0;
-    double totalTimeSeconds = 0.0; // Play time: completed run durations
+    double totalTimeSeconds = 0.0; // Play time: completed + abandoned run durations
+    double totalCompletedTimeSeconds = 0.0; // Sum of completion times for finished runs only
     double totalAppTimeSeconds = 0.0; // Total time app/game loop has been running
     int totalMistakes = 0;
     int totalNumbersPlaced = 0;

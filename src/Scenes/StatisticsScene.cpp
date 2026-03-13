@@ -60,7 +60,7 @@ void StatisticsScene::Setup() {
     };
 
     double averageTime = (stats.totalGamesCompleted > 0)
-        ? stats.totalTimeSeconds / static_cast<double>(stats.totalGamesCompleted)
+        ? stats.totalCompletedTimeSeconds / static_cast<double>(stats.totalGamesCompleted)
         : 0.0;
 
     double completionRate = (stats.totalGamesStarted > 0)
@@ -119,7 +119,7 @@ void StatisticsScene::Setup() {
         diffHeaderY += diffSpacing + 6;
 
         double diffAverage = (diffStats.gamesCompleted > 0)
-            ? diffStats.totalTimeSeconds / static_cast<double>(diffStats.gamesCompleted)
+            ? diffStats.completedTimeSeconds / static_cast<double>(diffStats.gamesCompleted)
             : 0.0;
 
         auto line1 = new TextWidget(
