@@ -113,6 +113,14 @@ void OptionsScene::Setup() {
     cpbb->defaultValue = true;
     drawableStack->AddDrawable(cpbb);
 
+    // Record leaderboard runs toggle
+    float rlbw = UIHelper::ScaleX(320.0f), rlbh = UIHelper::ScaleY(50.0f), rlbx = UIHelper::ScaleX(350.0f), rlby = GetScreenHeight() - rlbh*9;
+    auto rlbb = new ConfigToggleButton("options_toggle_recordleaderboards", "Record Leaderboards", Rectangle{rlbx, rlby, rlbw, rlbh});
+    rlbb->tooltip = "When disabled, completed runs are not submitted \nto local or remote leaderboards.";
+    rlbb->fontSize = UIHelper::ScaleFont(20);
+    rlbb->defaultValue = true;
+    drawableStack->AddDrawable(rlbb);
+
     // Tile selection trigger dropdown (mouse down / mouse up / both)
     std::map<const char*, int> tileSelectMap = {
         {"Tile Select: Mouse Down", 0},

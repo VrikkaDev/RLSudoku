@@ -9,7 +9,9 @@
 #include "Scenes/Drawables/ConfigToggleButton.h"
 #include "Scenes/Drawables/LeaderboardList.h"
 #include "Scenes/Drawables/LeaderboardDetail.h"
+#include "Scenes/Drawables/PlayerFilterDropdown.h"
 #include "Scenes/Drawables/TextWidget.h"
+#include "Scenes/Drawables/TextInputBox.h"
 #include "GameData.h"
 #include "GameScene.h"
 #include "ReplayScene.h"
@@ -17,6 +19,16 @@
 #include "Storage/RemoteSyncManager.h"
 
 #include <algorithm>
+#include <cctype>
+
+namespace {
+std::string ToLowerCopy(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return value;
+}
+}
 
 LeaderboardScene::LeaderboardScene() : Scene() {
 }
@@ -87,21 +99,31 @@ void LeaderboardScene::Setup() {
     };
     drawableStack->AddDrawable(filterConflictHighlightBtn);
 
-    // Player filter button (cycles through known players)
     float playerFilterW = UIHelper::ScaleX(360.0f);
     float playerFilterH = UIHelper::ScaleY(50.0f);
     float playerFilterX = dropdownX;
     float playerFilterY = dropdownY + dropdownH + gap;
-    playerFilterBtn = new GenericButton("Player: All", Rectangle{playerFilterX, playerFilterY, playerFilterW, playerFilterH});
-    playerFilterBtn->fontSize = UIHelper::ScaleFont(18);
-    playerFilterBtn->OnClick = [this](MouseEvent* event) {
-        if (playerFilters.empty()) {
-            return;
-        }
-        selectedPlayerFilter = (selectedPlayerFilter + 1) % static_cast<int>(playerFilters.size());
+
+    playerSearchInput = new TextInputBox("", Rectangle{playerFilterX, playerFilterY, playerFilterW, playerFilterH});
+    playerSearchInput->fontSize = UIHelper::ScaleFont(18);
+    playerSearchInput->maxLength = 24;
+    playerSearchInput->placeholder = "Search player...";
+    playerSearchInput->OnChanged = [this](const std::string& value) {
+        playerSearchQuery = value;
         RefreshEntries();
     };
-    drawableStack->AddDrawable(playerFilterBtn);
+    drawableStack->AddDrawable(playerSearchInput);
+
+    playerFilterDropdown = new PlayerFilterDropdown(Rectangle{playerFilterX, playerFilterY + playerFilterH + gap, playerFilterW, playerFilterH});
+    playerFilterDropdown->fontSize = UIHelper::ScaleFont(18);
+    playerFilterDropdown->maxVisibleItems = 5;
+    playerFilterDropdown->labelPrefix = "Player: ";
+    playerFilterDropdown->OnSelectionChanged = [this](int selectedIndex, const std::string&) {
+        selectedPlayerFilter = selectedIndex;
+        RefreshEntries();
+    };
+
+    //drawableStack->AddDrawable(playerFilterDropdown);
     
     // Leaderboard list/detail/action columns
     const float actionColumnW = std::max(UIHelper::ScaleX(220.0f), screenW * 0.14f);
@@ -182,6 +204,7 @@ void LeaderboardScene::Setup() {
     drawableStack->AddDrawable(tryPuzzleButton);
 
     drawableStack->AddDrawable(difficultyDropdown);
+    //drawableStack->AddDrawable(playerFilterDropdown);
     
     // Initial load
     RefreshEntries();
@@ -202,9 +225,17 @@ void LeaderboardScene::RefreshEntries() {
 
     std::vector<std::string> nextPlayerFilters;
     nextPlayerFilters.emplace_back("All");
+    const std::string queryLower = ToLowerCopy(playerSearchQuery);
+
     for (const auto& entry : entries) {
         if (entry.playerName.empty()) {
             continue;
+        }
+        if (!queryLower.empty()) {
+            const std::string playerLower = ToLowerCopy(entry.playerName);
+            if (playerLower.find(queryLower) == std::string::npos) {
+                continue;
+            }
         }
         if (std::find(nextPlayerFilters.begin(), nextPlayerFilters.end(), entry.playerName) == nextPlayerFilters.end()) {
             nextPlayerFilters.push_back(entry.playerName);
@@ -229,11 +260,7 @@ void LeaderboardScene::RefreshEntries() {
     }
 
     if (GameData::remoteSyncManager) {
-        if (selectedPlayer == "All") {
-            GameData::remoteSyncManager->QueueLeaderboardUpdate();
-        } else {
-            GameData::remoteSyncManager->QueueLeaderboardRefreshForPlayer(selectedPlayer);
-        }
+        GameData::remoteSyncManager->QueueLeaderboardUpdate();
     }
     
     // Filter based on individual assist type toggles
@@ -254,6 +281,13 @@ void LeaderboardScene::RefreshEntries() {
         // If entry uses conflict highlight and we're hiding them, exclude
         if (entry.usedConflictHighlight && !showConflictHighlight) {
             includeEntry = false;
+        }
+
+        if (!queryLower.empty()) {
+            const std::string playerLower = ToLowerCopy(entry.playerName);
+            if (playerLower.find(queryLower) == std::string::npos) {
+                includeEntry = false;
+            }
         }
 
         if (selectedPlayer != "All" && entry.playerName != selectedPlayer) {
@@ -302,8 +336,9 @@ void LeaderboardScene::RefreshEntries() {
         filterConflictHighlightBtn->color = showConflictHighlight ? ORANGE : Color{120, 60, 20, 255};
     }
 
-    if (playerFilterBtn) {
-        playerFilterBtn->text = std::string("Player: ") + selectedPlayer;
+    if (playerFilterDropdown) {
+        playerFilterDropdown->SetItems(playerFilters);
+        playerFilterDropdown->SetSelectedIndex(selectedPlayerFilter, false);
     }
 }
 

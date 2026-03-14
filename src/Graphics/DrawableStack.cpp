@@ -18,11 +18,19 @@ void DrawableStack::Draw() {
 void DrawableStack::OnEvent(Event* event) {
     for (const auto& drawable : drawables){
 
+        if (event && event->IsHandled()) {
+            break;
+        }
+
         if (!drawable){
             continue;
         }
 
         drawable->OnEvent(event);
+
+        if (event && event->IsHandled()) {
+            break;
+        }
 
         // Handle sub-events
         if (auto* me = dynamic_cast<MouseEvent*>(event)){
@@ -33,6 +41,9 @@ void DrawableStack::OnEvent(Event* event) {
             // EventType 2 is RELEASED
             if (me->EventType == 2 && drawable->enabled){
                 drawable->OnClick(me);
+                if (event->IsHandled()) {
+                    break;
+                }
             }
         }
 

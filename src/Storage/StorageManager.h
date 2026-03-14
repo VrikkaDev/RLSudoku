@@ -16,6 +16,8 @@ public:
     void Load();
 
     nlohmann::json GetData(const char* key);
+    void SetData(const char* key, const nlohmann::json& value, bool persist = true);
+    void RemoveData(const char* key, bool persist = true);
 private:
     std::string filename = "./game_data.json";
     nlohmann::json curr_json = {};

@@ -6,6 +6,7 @@
 #include "Helpers/TimeHelper.h"
 #include "Helpers/TextHelper.h"
 #include "Helpers/UIHelper.h"
+#include "PlayerFilterDropdown.h"
 #include <sstream>
 #include <iomanip>
 
@@ -29,7 +30,8 @@ void LeaderboardList::Draw() {
     // Handle scroll wheel
     Vector2 mousePos = GetMousePosition();
     Rectangle listRect = {(float)x, (float)y, (float)width, (float)height};
-    if (CheckCollisionPointRec(mousePos, listRect)) {
+    const bool dropdownCapturesPointer = PlayerFilterDropdown::IsPointerOverOpenDropdown(mousePos);
+    if (CheckCollisionPointRec(mousePos, listRect) && !dropdownCapturesPointer) {
         float wheelMove = GetMouseWheelMove();
         if (wheelMove != 0) {
             scrollOffset -= wheelMove * rowHeight;

@@ -45,6 +45,39 @@ bool IsAutoCandidatesEnabled() {
     nlohmann::json autoCandidatesEnabled = GameData::storageManager->GetData("options_toggle_autocandidates");
     return autoCandidatesEnabled.contains("value") && autoCandidatesEnabled["value"];
 }
+
+bool IsLeaderboardRecordingEnabled() {
+    nlohmann::json recordLeaderboards = GameData::storageManager->GetData("options_toggle_recordleaderboards");
+    if (!recordLeaderboards.contains("value")) {
+        return true;
+    }
+    return recordLeaderboards["value"];
+}
+
+std::string TrimCopy(const std::string& value) {
+    size_t start = 0;
+    size_t end = value.size();
+
+    while (start < end && std::isspace(static_cast<unsigned char>(value[start])) != 0) {
+        ++start;
+    }
+    while (end > start && std::isspace(static_cast<unsigned char>(value[end - 1])) != 0) {
+        --end;
+    }
+
+    return value.substr(start, end - start);
+}
+
+std::string ResolvePlayerName() {
+    if (GameData::remoteSyncManager) {
+        std::string remoteName = TrimCopy(GameData::remoteSyncManager->GetConfig().username);
+        if (!remoteName.empty()) {
+            return remoteName;
+        }
+    }
+
+    return "Player";
+}
 }
 
 GameScene::GameScene() : Scene(){
@@ -190,10 +223,14 @@ void GameScene::Setup() {
     auto wb = new WinScreen(Rectangle{wx,wy,ww,wh});
     drawableStack->AddDrawable(wb);
 
-    if (isPracticeRun) {
+    const bool canRecordLeaderboard = !isPracticeRun && IsLeaderboardRecordingEnabled();
+    if (!canRecordLeaderboard) {
         float messageX = cx + cw + 10;
         float messageY = ny + nh + 20;
-        auto* practiceNotice = new TextWidget("Practice run — no leaderboard submission.", static_cast<int>(messageX), static_cast<int>(messageY), 18, LIGHTGRAY, false);
+        const char* noticeText = isPracticeRun
+            ? "Practice run - no leaderboard submission."
+            : "Leaderboard recording disabled in options.";
+        auto* practiceNotice = new TextWidget(noticeText, static_cast<int>(messageX), static_cast<int>(messageY), 18, LIGHTGRAY, false);
         drawableStack->AddDrawable(practiceNotice);
     }
 
@@ -388,10 +425,6 @@ void GameScene::RecordMove(int tileNumber, int value, double timestamp) {
 }
 
 void GameScene::SubmitToLeaderboard() {
-    if (isPracticeRun) {
-        return;
-    }
-    
     // Get final time from clock widget
     double finalTime = 0;
     for(const auto& dr : drawableStack->drawables){
@@ -410,25 +443,27 @@ void GameScene::SubmitToLeaderboard() {
     usedAutoCandidates = autoCandidatesEnabled.contains("value") && autoCandidatesEnabled["value"];
     usedAutoCheck = autoCheckEnabled.contains("value") && autoCheckEnabled["value"];
     usedConflictHighlight = conflictHighlightEnabled.contains("value") && conflictHighlightEnabled["value"];
-    
-    // Create leaderboard entry
-    LeaderboardEntry entry;
-    entry.playerName = "Vrikka"; // TODO: Add name input dialog
-    entry.completionTime = finalTime;
-    entry.initialBoard = orgBoard->parser();
-    entry.solutionBoard = solvedBoard->parser();
-    entry.difficulty = difficulty;
-    entry.usedAutoCandidates = usedAutoCandidates;
-    entry.usedAutoCheck = usedAutoCheck;
-    entry.usedConflictHighlight = usedConflictHighlight;
-    entry.moves = moveHistory;
-    entry.startedAt = puzzleStartRealTime;
-    entry.completedAt = std::time(nullptr);
-    
-    GameData::leaderboardManager->AddEntry(entry);
 
-    if (GameData::remoteSyncManager) {
-        GameData::remoteSyncManager->QueueLeaderboardSubmission(entry);
+    if (!isPracticeRun && IsLeaderboardRecordingEnabled()) {
+        // Create leaderboard entry
+        LeaderboardEntry entry;
+        entry.playerName = ResolvePlayerName();
+        entry.completionTime = finalTime;
+        entry.initialBoard = orgBoard->parser();
+        entry.solutionBoard = solvedBoard->parser();
+        entry.difficulty = difficulty;
+        entry.usedAutoCandidates = usedAutoCandidates;
+        entry.usedAutoCheck = usedAutoCheck;
+        entry.usedConflictHighlight = usedConflictHighlight;
+        entry.moves = moveHistory;
+        entry.startedAt = puzzleStartRealTime;
+        entry.completedAt = std::time(nullptr);
+
+        GameData::leaderboardManager->AddEntry(entry);
+
+        if (GameData::remoteSyncManager) {
+            GameData::remoteSyncManager->QueueLeaderboardSubmission(entry);
+        }
     }
 
     if (GameData::statisticsManager) {

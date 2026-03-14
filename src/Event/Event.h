@@ -10,6 +10,12 @@ class Event {
 public:
     Event() = default;
     virtual ~Event() = default;
+
+    void StopPropagation() { handled = true; }
+    [[nodiscard]] bool IsHandled() const { return handled; }
+
+private:
+    bool handled = false;
 };
 
 class EventDispatcher{

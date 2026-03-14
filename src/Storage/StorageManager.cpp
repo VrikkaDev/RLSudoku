@@ -63,3 +63,29 @@ nlohmann::json StorageManager::GetData(const char* key) {
     }
     return "";
 }
+
+void StorageManager::SetData(const char* key, const nlohmann::json& value, bool persist) {
+    curr_json[key] = value;
+
+    if (!persist) {
+        return;
+    }
+
+    std::ofstream WFile(filename);
+    WFile << curr_json.dump(4);
+    WFile.close();
+}
+
+void StorageManager::RemoveData(const char* key, bool persist) {
+    if (curr_json.contains(key)) {
+        curr_json.erase(key);
+    }
+
+    if (!persist) {
+        return;
+    }
+
+    std::ofstream WFile(filename);
+    WFile << curr_json.dump(4);
+    WFile.close();
+}

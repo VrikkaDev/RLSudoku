@@ -13,6 +13,8 @@ class LeaderboardList;
 class LeaderboardDetail;
 class GenericDropdown;
 class GenericButton;
+class TextInputBox;
+class PlayerFilterDropdown;
 
 class LeaderboardScene : public Scene {
 public:
@@ -33,6 +35,7 @@ private:
     bool showConflictHighlight = true;
     std::vector<std::string> playerFilters;
     int selectedPlayerFilter = 0;
+    std::string playerSearchQuery;
     
     LeaderboardList* leaderboardList = nullptr;
     LeaderboardDetail* detailPanel = nullptr;
@@ -40,7 +43,8 @@ private:
     GenericButton* filterAutoCandidatesBtn = nullptr;
     GenericButton* filterAutoCheckBtn = nullptr;
     GenericButton* filterConflictHighlightBtn = nullptr;
-    GenericButton* playerFilterBtn = nullptr;
+    PlayerFilterDropdown* playerFilterDropdown = nullptr;
+    TextInputBox* playerSearchInput = nullptr;
     GenericButton* replayButton = nullptr;
     GenericButton* tryPuzzleButton = nullptr;
     

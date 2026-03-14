@@ -21,7 +21,7 @@
 
 namespace {
 
-constexpr const char* kClientVersion = "1.0.0";
+constexpr const char* kClientVersion = "1.0.1";
 constexpr int kHttpResolveTimeoutMs = 1500;
 constexpr int kHttpConnectTimeoutMs = 2000;
 constexpr int kHttpSendTimeoutMs = 2500;

@@ -17,9 +17,15 @@ public:
     void OnResize() override;
 
 private:
+    bool requiresPlayerName = false;
+    class TextInputBox* playerNameInput = nullptr;
+    class TextWidget* playerNameErrorText = nullptr;
+    class GenericButton* playerNameConfirmButton = nullptr;
     class TextWidget* syncStatusText = nullptr;
     class TextWidget* versionStatusText = nullptr;
     class GenericButton* updateButton = nullptr;
+
+    void TrySavePlayerName();
 };
 
 

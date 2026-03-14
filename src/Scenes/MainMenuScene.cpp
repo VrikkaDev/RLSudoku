@@ -14,9 +14,39 @@
 #include "Helpers/UIHelper.h"
 #include "StatisticsScene.h"
 #include "Scenes/Drawables/TextWidget.h"
+#include "Scenes/Drawables/TextInputBox.h"
 #include "Storage/RemoteSyncManager.h"
 
 #include <cmath>
+#include <algorithm>
+#include <cctype>
+
+namespace {
+std::string TrimCopy(const std::string& value) {
+    size_t start = 0;
+    size_t end = value.size();
+
+    while (start < end && std::isspace(static_cast<unsigned char>(value[start])) != 0) {
+        ++start;
+    }
+    while (end > start && std::isspace(static_cast<unsigned char>(value[end - 1])) != 0) {
+        --end;
+    }
+
+    return value.substr(start, end - start);
+}
+
+std::string GetConfiguredUsername() {
+    if (GameData::remoteSyncManager) {
+        const std::string configured = TrimCopy(GameData::remoteSyncManager->GetConfig().username);
+        if (!configured.empty()) {
+            return configured;
+        }
+    }
+
+    return "";
+}
+}
 
 MainMenuScene::MainMenuScene() : Scene() {
 }
@@ -24,6 +54,58 @@ MainMenuScene::MainMenuScene() : Scene() {
 void MainMenuScene::Setup() {
     const float screenW = static_cast<float>(GetScreenWidth());
     const float screenH = static_cast<float>(GetScreenHeight());
+
+    // Username should be stored only in remote_sync.json.
+    if (GameData::storageManager) {
+        GameData::storageManager->RemoveData("profile_player_name", true);
+    }
+
+    const std::string existingUsername = GetConfiguredUsername();
+    requiresPlayerName = existingUsername.empty();
+
+    if (requiresPlayerName) {
+        const float panelW = std::min(UIHelper::ScaleX(520.0f), screenW - UIHelper::ScaleX(40.0f));
+        const float panelH = UIHelper::ScaleY(220.0f);
+        const float panelX = (screenW - panelW) * 0.5f;
+        const float panelY = (screenH - panelH) * 0.5f;
+
+        auto* title = new TextWidget("Choose username", static_cast<int>(panelX), static_cast<int>(panelY), UIHelper::ScaleFont(30), WHITE, false);
+        drawableStack->AddDrawable(title);
+
+        const float inputY = panelY + UIHelper::ScaleY(56.0f);
+        playerNameInput = new TextInputBox("", Rectangle{panelX, inputY, panelW, UIHelper::ScaleY(52.0f)});
+        playerNameInput->fontSize = UIHelper::ScaleFont(22);
+        playerNameInput->maxLength = 24;
+        playerNameInput->placeholder = "Enter username for stats and leaderboards";
+        drawableStack->AddDrawable(playerNameInput);
+
+        const float statusY = inputY + UIHelper::ScaleY(58.0f);
+        playerNameErrorText = new TextWidget("", static_cast<int>(panelX), static_cast<int>(statusY), UIHelper::ScaleFont(18), MAROON, false);
+        drawableStack->AddDrawable(playerNameErrorText);
+
+        const float saveW = UIHelper::ScaleX(190.0f);
+        const float saveH = UIHelper::ScaleY(48.0f);
+        const float saveX = panelX;
+        const float saveY = panelY + panelH - saveH;
+        playerNameConfirmButton = new GenericButton("Save Username", Rectangle{saveX, saveY, saveW, saveH});
+        playerNameConfirmButton->fontSize = UIHelper::ScaleFont(28);
+        playerNameConfirmButton->OnClick = [this](MouseEvent* event) {
+            TrySavePlayerName();
+        };
+        drawableStack->AddDrawable(playerNameConfirmButton);
+
+        const float quitW = UIHelper::ScaleX(160.0f);
+        const float quitH = saveH;
+        const float quitX = panelX + panelW - quitW;
+        auto* quitButton = new GenericButton("Quit", Rectangle{quitX, saveY, quitW, quitH});
+        quitButton->fontSize = UIHelper::ScaleFont(26);
+        quitButton->OnClick = [](MouseEvent* event) {
+            GameData::isRunning = false;
+        };
+        drawableStack->AddDrawable(quitButton);
+
+        return;
+    }
 
     const float gapY = UIHelper::ScaleY(10.0f);
     const float centerX = screenW * 0.5f;
@@ -140,6 +222,13 @@ void MainMenuScene::Setup() {
 void MainMenuScene::OnUpdate() {
     Scene::OnUpdate();
 
+    if (requiresPlayerName) {
+        if (IsKeyPressed(KEY_ENTER)) {
+            TrySavePlayerName();
+        }
+        return;
+    }
+
     if (!syncStatusText || !versionStatusText || !updateButton) {
         return;
     }
@@ -241,3 +330,30 @@ void MainMenuScene::OnResize() {
 }
 
 MainMenuScene::~MainMenuScene() = default;
+
+void MainMenuScene::TrySavePlayerName() {
+    if (!playerNameInput || !playerNameErrorText) {
+        return;
+    }
+
+    const std::string trimmedName = TrimCopy(playerNameInput->text);
+    if (trimmedName.empty()) {
+        playerNameErrorText->text = "Username cannot be empty.";
+        playerNameErrorText->color = MAROON;
+        return;
+    }
+
+    if (GameData::remoteSyncManager) {
+        RemoteSyncConfig cfg = GameData::remoteSyncManager->GetConfig();
+        if (cfg.username != trimmedName) {
+            cfg.username = trimmedName;
+            GameData::remoteSyncManager->UpdateConfig(cfg);
+        }
+    } else {
+        playerNameErrorText->text = "Sync manager unavailable.";
+        playerNameErrorText->color = MAROON;
+        return;
+    }
+
+    GameData::SetScene(std::make_unique<MainMenuScene>());
+}
