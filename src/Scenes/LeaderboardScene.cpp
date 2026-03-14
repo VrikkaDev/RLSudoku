@@ -13,6 +13,7 @@
 #include "GameData.h"
 #include "GameScene.h"
 #include "ReplayScene.h"
+#include "Helpers/UIHelper.h"
 #include "Storage/RemoteSyncManager.h"
 
 #include <algorithm>
@@ -23,14 +24,17 @@ LeaderboardScene::LeaderboardScene() : Scene() {
 void LeaderboardScene::Setup() {
     float screenW = GetScreenWidth();
     float screenH = GetScreenHeight();
+    float margin = UIHelper::ScaleX(20.0f);
+    float gap = UIHelper::ScaleX(10.0f);
+    float topInset = UIHelper::ScaleY(20.0f);
     
     // Title
-    auto title = new TextWidget("LEADERBOARDS", screenW / 2, 20, 40, WHITE, true);
+    auto title = new TextWidget("LEADERBOARDS", static_cast<int>(screenW / 2), static_cast<int>(topInset), UIHelper::ScaleFont(40), WHITE, true);
     drawableStack->AddDrawable(title);
     
     // Difficulty filter dropdown
-    float dropdownW = 220, dropdownH = 50;
-    float dropdownX = 20, dropdownY = 80;
+    float dropdownW = UIHelper::ScaleX(220.0f), dropdownH = UIHelper::ScaleY(50.0f);
+    float dropdownX = margin, dropdownY = UIHelper::ScaleY(80.0f);
     
     std::map<const char*, int> difficultyMap = {
         {"All Difficulties", 0}, 
@@ -41,19 +45,19 @@ void LeaderboardScene::Setup() {
     };
     
     difficultyDropdown = new GenericDropdown(difficultyMap, "leaderboard_difficulty_filter", Rectangle{dropdownX, dropdownY, dropdownW, dropdownH});
-    difficultyDropdown->fontSize = 20;
+    difficultyDropdown->fontSize = UIHelper::ScaleFont(20);
     // Add later so draw on top
     //drawableStack->AddDrawable(difficultyDropdown);
     
     // Assist filter buttons - toggle individual assist types
-    float filterBtnW = 120, filterBtnH = 50;
-    float filterBtnX = dropdownX + dropdownW + 20;
+    float filterBtnW = UIHelper::ScaleX(120.0f), filterBtnH = UIHelper::ScaleY(50.0f);
+    float filterBtnX = dropdownX + dropdownW + margin;
     float filterBtnY = dropdownY;
-    float filterBtnGap = 10;
+    float filterBtnGap = gap;
     
     // Auto-Candidates filter button
     filterAutoCandidatesBtn = new GenericButton("Auto-Cand", Rectangle{filterBtnX, filterBtnY, filterBtnW, filterBtnH});
-    filterAutoCandidatesBtn->fontSize = 16;
+    filterAutoCandidatesBtn->fontSize = UIHelper::ScaleFont(16);
     filterAutoCandidatesBtn->color = DARKBLUE;
     filterAutoCandidatesBtn->OnClick = [this](MouseEvent* event) {
         showAutoCandidates = !showAutoCandidates;
@@ -64,7 +68,7 @@ void LeaderboardScene::Setup() {
     // Auto-Check filter button
     filterBtnX += filterBtnW + filterBtnGap;
     filterAutoCheckBtn = new GenericButton("Auto-Check", Rectangle{filterBtnX, filterBtnY, filterBtnW, filterBtnH});
-    filterAutoCheckBtn->fontSize = 16;
+    filterAutoCheckBtn->fontSize = UIHelper::ScaleFont(16);
     filterAutoCheckBtn->color = DARKGREEN;
     filterAutoCheckBtn->OnClick = [this](MouseEvent* event) {
         showAutoCheck = !showAutoCheck;
@@ -75,7 +79,7 @@ void LeaderboardScene::Setup() {
     // Conflict Highlight filter button
     filterBtnX += filterBtnW + filterBtnGap;
     filterConflictHighlightBtn = new GenericButton("Conflicts", Rectangle{filterBtnX, filterBtnY, filterBtnW, filterBtnH});
-    filterConflictHighlightBtn->fontSize = 16;
+    filterConflictHighlightBtn->fontSize = UIHelper::ScaleFont(16);
     filterConflictHighlightBtn->color = ORANGE;
     filterConflictHighlightBtn->OnClick = [this](MouseEvent* event) {
         showConflictHighlight = !showConflictHighlight;
@@ -84,12 +88,12 @@ void LeaderboardScene::Setup() {
     drawableStack->AddDrawable(filterConflictHighlightBtn);
 
     // Player filter button (cycles through known players)
-    float playerFilterW = 360.0f;
-    float playerFilterH = 50.0f;
+    float playerFilterW = UIHelper::ScaleX(360.0f);
+    float playerFilterH = UIHelper::ScaleY(50.0f);
     float playerFilterX = dropdownX;
-    float playerFilterY = dropdownY + dropdownH + 10.0f;
+    float playerFilterY = dropdownY + dropdownH + gap;
     playerFilterBtn = new GenericButton("Player: All", Rectangle{playerFilterX, playerFilterY, playerFilterW, playerFilterH});
-    playerFilterBtn->fontSize = 18;
+    playerFilterBtn->fontSize = UIHelper::ScaleFont(18);
     playerFilterBtn->OnClick = [this](MouseEvent* event) {
         if (playerFilters.empty()) {
             return;
@@ -99,39 +103,53 @@ void LeaderboardScene::Setup() {
     };
     drawableStack->AddDrawable(playerFilterBtn);
     
-    // Leaderboard list widget
-    float listW = screenW * 0.52f;
-    float listX = 20;
-    float listY = 210;
-    float listH = screenH - listY - 20;
+    // Leaderboard list/detail/action columns
+    const float actionColumnW = std::max(UIHelper::ScaleX(220.0f), screenW * 0.14f);
+    const float minListW = UIHelper::ScaleX(320.0f);
+    const float minDetailW = UIHelper::ScaleX(260.0f);
+    const float centerAreaW = std::max(200.0f, screenW - margin * 3.0f - actionColumnW);
+
+    float listW = centerAreaW * 0.58f;
+    if (listW < minListW) {
+        listW = minListW;
+    }
+
+    float detailW = centerAreaW - listW - margin;
+    if (detailW < minDetailW) {
+        detailW = minDetailW;
+        listW = std::max(minListW, centerAreaW - detailW - margin);
+    }
+
+    float listX = margin;
+    float listY = UIHelper::ScaleY(210.0f);
+    float listH = screenH - listY - margin;
     
     leaderboardList = new LeaderboardList(Rectangle{listX, listY, listW, listH});
     drawableStack->AddDrawable(leaderboardList);
     
-    // Detail panel widget - adjusted to not overlap with back button
-    float detailW = screenW - listX - listW - 260; // Leave space for back button
+    // Detail panel widget - adjusted to not overlap with right action column
     float detailH = listH;
-    float detailX = listX + listW + 20;
+    float detailX = listX + listW + margin;
     float detailY = listY;
     
     detailPanel = new LeaderboardDetail(Rectangle{detailX, detailY, detailW, detailH});
     drawableStack->AddDrawable(detailPanel);
     
     // Back button - moved to top right
-    float backW = 200, backH = 50;
-    float backX = screenW - backW - 20;
-    float backY = 20;
+    float backW = actionColumnW, backH = UIHelper::ScaleY(50.0f);
+    float backX = screenW - backW - margin;
+    float backY = topInset;
     
     auto backBtn = new GenericButton("Back", Rectangle{backX, backY, backW, backH});
-    backBtn->fontSize = 25;
+    backBtn->fontSize = UIHelper::ScaleFont(25);
     backBtn->OnClick = [](MouseEvent* event) {
         GameData::SetScene(std::make_unique<MainMenuScene>());
     };
     drawableStack->AddDrawable(backBtn);
 
-    float replayY = backY + backH + 10.0f;
+    float replayY = backY + backH + gap;
     replayButton = new GenericButton("Watch Replay", Rectangle{backX, replayY, backW, backH});
-    replayButton->fontSize = 22;
+    replayButton->fontSize = UIHelper::ScaleFont(22);
     replayButton->color = Color{60, 60, 60, 255};
     replayButton->hoverColor = Color{60, 60, 60, 255};
     replayButton->pressColor = Color{60, 60, 60, 255};
@@ -146,9 +164,9 @@ void LeaderboardScene::Setup() {
     };
     drawableStack->AddDrawable(replayButton);
 
-    float tryY = replayY + backH + 10.0f;
+    float tryY = replayY + backH + gap;
     tryPuzzleButton = new GenericButton("Try This Puzzle", Rectangle{backX, tryY, backW, backH});
-    tryPuzzleButton->fontSize = 22;
+    tryPuzzleButton->fontSize = UIHelper::ScaleFont(22);
     tryPuzzleButton->color = Color{60, 60, 60, 255};
     tryPuzzleButton->hoverColor = Color{60, 60, 60, 255};
     tryPuzzleButton->pressColor = Color{60, 60, 60, 255};

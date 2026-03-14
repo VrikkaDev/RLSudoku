@@ -6,6 +6,7 @@
 #include "GameData.h"
 #include "MainMenuScene.h"
 #include "Storage/StatisticsManager.h"
+#include "Helpers/UIHelper.h"
 #include "Scenes/Drawables/GenericButton.h"
 #include "Scenes/Drawables/TextWidget.h"
 #include "Helpers/TimeHelper.h"
@@ -26,35 +27,42 @@ static std::string FormatTimeOrDash(double seconds) {
 
 void StatisticsScene::Setup() {
     float screenW = GetScreenWidth();
+    float screenH = GetScreenHeight();
 
-    auto title = new TextWidget("STATISTICS", static_cast<int>(screenW / 2), 30, 40, WHITE, true);
+    const float marginX = std::max(12.0f, UIHelper::ScaleX(24.0f));
+    const int titleFont = UIHelper::ScaleFont(40);
+    const int sectionHeaderFont = UIHelper::ScaleFont(30);
+    const int bodyFont = std::max(11, UIHelper::ScaleFont(20));
+    const int lineSpacing = std::max(bodyFont + 4, UIHelper::ScaleFont(24));
+    const int topY = static_cast<int>(std::max(70.0f, UIHelper::ScaleY(110.0f)));
+
+    auto title = new TextWidget("STATISTICS", static_cast<int>(screenW / 2), static_cast<int>(UIHelper::ScaleY(24.0f)), titleFont, WHITE, true);
     drawableStack->AddDrawable(title);
 
-    auto backBtn = new GenericButton("Back", Rectangle{screenW - 220, 20, 200, 50});
-    backBtn->fontSize = 25;
+    auto backBtn = new GenericButton("Back", Rectangle{screenW - UIHelper::ScaleX(220.0f), UIHelper::ScaleY(18.0f), UIHelper::ScaleX(200.0f), UIHelper::ScaleY(48.0f)});
+    backBtn->fontSize = UIHelper::ScaleFont(25);
     backBtn->OnClick = [](MouseEvent* event) {
         GameData::SetScene(std::make_unique<MainMenuScene>());
     };
     drawableStack->AddDrawable(backBtn);
 
     if (!GameData::statisticsManager) {
-        auto info = new TextWidget("No statistics available yet.", 40, 120, 28, WHITE, false);
+        auto info = new TextWidget("No statistics available yet.", static_cast<int>(marginX), topY, UIHelper::ScaleFont(24), WHITE, false);
         drawableStack->AddDrawable(info);
         return;
     }
 
     const auto& stats = GameData::statisticsManager->GetStats();
 
-    float leftColumnX = 40.0f;
-    int lineSpacing = 28;
-    int currentY = 110;
+    float leftColumnX = marginX;
+    int currentY = topY;
 
-    auto overallHeader = new TextWidget("Overall Summary", static_cast<int>(leftColumnX), currentY, 32, YELLOW, false);
+    auto overallHeader = new TextWidget("Overall Summary", static_cast<int>(leftColumnX), currentY, sectionHeaderFont, YELLOW, false);
     drawableStack->AddDrawable(overallHeader);
-    currentY += lineSpacing + 10;
+    currentY += lineSpacing + UIHelper::ScaleFont(6);
 
-    auto addLine = [this, &currentY, lineSpacing, leftColumnX](const std::string& text) {
-        auto line = new TextWidget(text, static_cast<int>(leftColumnX), currentY, 24, WHITE, false);
+    auto addLine = [this, &currentY, lineSpacing, leftColumnX, bodyFont](const std::string& text) {
+        auto line = new TextWidget(text, static_cast<int>(leftColumnX), currentY, bodyFont, WHITE, false);
         drawableStack->AddDrawable(line);
         currentY += lineSpacing;
     };
@@ -99,8 +107,21 @@ void StatisticsScene::Setup() {
     addLine("Auto Check Used: " + std::to_string(stats.runsWithAutoCheck));
     addLine("Conflict Highlight Used: " + std::to_string(stats.runsWithConflictHighlight));
 
-    float rightColumnX = screenW / 2.0f + 20.0f;
-    int diffHeaderY = 110;
+    // Difficulty section anchored to the right side.
+    const float minRightPanelW = UIHelper::ScaleX(300.0f);
+    const float maxRightPanelW = UIHelper::ScaleX(620.0f);
+    float rightPanelW = std::clamp(screenW * 0.42f, minRightPanelW, maxRightPanelW);
+    float rightColumnX = screenW - marginX - rightPanelW;
+    int diffHeaderY = topY;
+
+    // Only stack below when side-by-side is genuinely impossible.
+   // const bool tinyWidth = screenW < 980.0f;
+    const bool overlapsLeft = rightColumnX < (leftColumnX + UIHelper::ScaleX(520.0f));
+    /*if (tinyWidth || overlapsLeft) {
+        rightColumnX = marginX;
+        rightPanelW = screenW - marginX * 2.0f;
+        diffHeaderY = currentY + UIHelper::ScaleFont(10);
+    }*/
 
     std::array<const char*, 4> difficultyLabels = {
         "Easy (<=30)",
@@ -109,54 +130,51 @@ void StatisticsScene::Setup() {
         "Very Hard (>=56)"
     };
 
-    int diffSpacing = lineSpacing;
+    int diffCols = 1;
+    float diffAreaWidth = rightPanelW;
+    float cardWidth = diffAreaWidth;
+    int cardLineSpacing = std::max(bodyFont + 3, UIHelper::ScaleFont(20));
+    int cardHeight = cardLineSpacing * 6;
 
     for (size_t i = 0; i < stats.difficulties.size(); ++i) {
         const auto& diffStats = stats.difficulties[i];
+        int row = static_cast<int>(i) / diffCols;
+        int col = static_cast<int>(i) % diffCols;
+        int cardX = static_cast<int>(rightColumnX + col * (cardWidth + marginX));
+        int cardY = diffHeaderY + row * (cardHeight + UIHelper::ScaleFont(8));
 
-        auto header = new TextWidget(difficultyLabels[i], static_cast<int>(rightColumnX), diffHeaderY, 30, LIGHTGRAY, false);
+        auto header = new TextWidget(difficultyLabels[i], cardX, cardY, UIHelper::ScaleFont(22), LIGHTGRAY, false);
         drawableStack->AddDrawable(header);
-        diffHeaderY += diffSpacing + 6;
+        cardY += cardLineSpacing;
 
         double diffAverage = (diffStats.gamesCompleted > 0)
             ? diffStats.completedTimeSeconds / static_cast<double>(diffStats.gamesCompleted)
             : 0.0;
 
-        auto line1 = new TextWidget(
-            "Games Started: " + std::to_string(diffStats.gamesStarted),
-            static_cast<int>(rightColumnX), diffHeaderY, 22, WHITE, false);
+        auto line1 = new TextWidget("Start: " + std::to_string(diffStats.gamesStarted) +
+                                        "  Done: " + std::to_string(diffStats.gamesCompleted),
+                                    cardX, cardY, bodyFont, WHITE, false);
         drawableStack->AddDrawable(line1);
-        diffHeaderY += diffSpacing;
+        cardY += cardLineSpacing;
 
-        auto line2 = new TextWidget(
-            "Games Completed: " + std::to_string(diffStats.gamesCompleted),
-            static_cast<int>(rightColumnX), diffHeaderY, 22, WHITE, false);
+        auto line2 = new TextWidget("Avg: " + FormatTimeOrDash(diffAverage) +
+                                        " | Best: " + FormatTimeOrDash(diffStats.bestTimeSeconds),
+                                    cardX, cardY, bodyFont, WHITE, false);
         drawableStack->AddDrawable(line2);
-        diffHeaderY += diffSpacing;
+        cardY += cardLineSpacing;
 
-        auto line3 = new TextWidget(
-            "Average Time: " + FormatTimeOrDash(diffAverage),
-            static_cast<int>(rightColumnX), diffHeaderY, 22, WHITE, false);
+        auto line3 = new TextWidget("Place: " + std::to_string(diffStats.numbersPlaced) +
+                                        "  Clear: " + std::to_string(diffStats.numbersCleared),
+                                    cardX, cardY, bodyFont, WHITE, false);
         drawableStack->AddDrawable(line3);
-        diffHeaderY += diffSpacing;
+    }
 
-        auto line4 = new TextWidget(
-            "Best Time: " + FormatTimeOrDash(diffStats.bestTimeSeconds),
-            static_cast<int>(rightColumnX), diffHeaderY, 22, WHITE, false);
-        drawableStack->AddDrawable(line4);
-        diffHeaderY += diffSpacing;
-
-        auto line5 = new TextWidget(
-            "Numbers Placed: " + std::to_string(diffStats.numbersPlaced),
-            static_cast<int>(rightColumnX), diffHeaderY, 22, WHITE, false);
-        drawableStack->AddDrawable(line5);
-        diffHeaderY += diffSpacing;
-
-        auto line6 = new TextWidget(
-            "Numbers Cleared: " + std::to_string(diffStats.numbersCleared),
-            static_cast<int>(rightColumnX), diffHeaderY, 22, WHITE, false);
-        drawableStack->AddDrawable(line6);
-        diffHeaderY += diffSpacing + 12;
+    // Final fallback hint when height is very tight.
+    if (screenH < 760.0f) {
+        auto hint = new TextWidget("Tip: Resize window taller for full statistics view.",
+            static_cast<int>(marginX), static_cast<int>(screenH - UIHelper::ScaleY(28.0f)),
+            UIHelper::ScaleFont(16), LIGHTGRAY, false);
+        drawableStack->AddDrawable(hint);
     }
 }
 

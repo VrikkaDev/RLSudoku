@@ -20,5 +20,7 @@ void DrawTextBC(const char* text, int posX, int posY, int fontSize, int width, i
 void DrawTextBCL(const char* text, int posX, int posY, int fontSize, int height, Color color);
 // Draws tooltip at mouse position using font
 void DrawTooltipB(const char* text, int fontSize, Color bgColor, Color color);
+// Returns a font size that fits the longest line of text into maxWidth.
+int GetFittedFontSize(const char* text, int preferredFontSize, int minFontSize, float maxWidth);
 
 #endif //RLSUDOKU_TEXTHELPER_H

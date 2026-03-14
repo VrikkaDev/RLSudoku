@@ -9,18 +9,9 @@
 #include "Storage/StatisticsManager.h"
 #include "Scenes/GameScene.h"
 #include "Storage/LeaderboardManager.h"
+#include "Helpers/UIHelper.h"
 #include <set>
 #include <algorithm>
-
-namespace {
-bool IsDarkModeEnabled() {
-    if (!GameData::storageManager) {
-        return false;
-    }
-    nlohmann::json mode = GameData::storageManager->GetData("options_toggle_darkmode");
-    return mode.contains("value") && mode["value"].is_boolean() && mode["value"];
-}
-}
 
 TileButton::TileButton() : Drawable() {
 
@@ -43,8 +34,61 @@ TileButton::TileButton(int tilenum, const char* txt, int correctNum, Rectangle r
     height = rec.height;
 }
 
+bool TileButton::IsEditableEmptyTile() const {
+    if (permanent) {
+        return false;
+    }
+    return text.empty() || text == "-1";
+}
+
+bool TileButton::IsPointOverCandidateCell(Vector2 point, int* candidateValue) const {
+    if (!IsEditableEmptyTile()) {
+        return false;
+    }
+
+    const float slotW = width / 3.0f;
+    const float slotH = height / 3.0f;
+    const float hitSize = std::max(8.0f, std::min(slotW, slotH) * 0.55f);
+
+    int t = 1;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            const float slotX = static_cast<float>(x) + j * slotW;
+            const float slotY = static_cast<float>(y) + i * slotH;
+            auto trec = Rectangle {
+                slotX + (slotW - hitSize) * 0.5f,
+                slotY + (slotH - hitSize) * 0.5f,
+                hitSize,
+                hitSize
+            };
+            if (CheckCollisionPointRec(point, trec)) {
+                if (candidateValue) {
+                    *candidateValue = t;
+                }
+                return true;
+            }
+            t++;
+        }
+    }
+
+    return false;
+}
+
 void TileButton::OnStart() {
     OnClick = [this](MouseEvent* event){
+        const bool wasSelected = selected;
+
+        // If this press is primarily selecting the tile, don't treat the same press as candidate input.
+        if (event && event->EventType == 1 && !wasSelected) {
+            nlohmann::json noSelectCfg = GameData::storageManager->GetData("options_toggle_candidateswithoutselection");
+            const bool candidateWithoutSelection = noSelectCfg.contains("value") && noSelectCfg["value"].is_boolean() && noSelectCfg["value"];
+            const bool clickedCandidateCell = IsPointOverCandidateCell(event->MousePosition);
+
+            // Allow same-press candidate toggle only when explicit no-select candidate mode is enabled
+            // and the click was on a candidate cell area.
+            suppressCandidatePressUntilRelease = !(candidateWithoutSelection && clickedCandidateCell);
+            suppressedPressStartPos = event->MousePosition;
+        }
 
         if (auto* p = dynamic_cast<TileGrid*>(parent)){
             p->SelectTile(tileNumber);
@@ -63,7 +107,7 @@ void TileButton::OnStart() {
 }
 
 void TileButton::Draw() {
-    const bool darkMode = IsDarkModeEnabled();
+    const bool darkMode = UIHelper::IsDarkModeEnabled();
     if (darkMode) {
         if (color.r == LIGHTGRAY.r && color.g == LIGHTGRAY.g && color.b == LIGHTGRAY.b && color.a == LIGHTGRAY.a) {
             color = CLITERAL(Color){45, 45, 52, 255};
@@ -100,13 +144,42 @@ void TileButton::Draw() {
 
     bool isHovering = CheckCollisionPointRec(GetMousePosition(), GetRectangle());
     bool isPressed = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    nlohmann::json autoCandidatesEnabled = GameData::storageManager->GetData("options_toggle_autocandidates");
+    bool showAutoCandidates = autoCandidatesEnabled.contains("value") && autoCandidatesEnabled["value"];
+    if (replayOverrideMode) {
+        showAutoCandidates = replayAutoMode;
+    }
+
+    nlohmann::json holdCandidateCfg = GameData::storageManager->GetData("options_toggle_holdcandidate");
+    bool holdToCandidate = !holdCandidateCfg.contains("value") || !holdCandidateCfg["value"].is_boolean() || holdCandidateCfg["value"];
+
+    nlohmann::json noSelectCfg = GameData::storageManager->GetData("options_toggle_candidateswithoutselection");
+    bool candidateWithoutSelection = noSelectCfg.contains("value") && noSelectCfg["value"].is_boolean() && noSelectCfg["value"];
+
+    if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+        lastDraggedCandidate = 0;
+        suppressCandidatePressUntilRelease = false;
+        suppressedPressStartPos = Vector2{0.0f, 0.0f};
+        candidateToggledThisDrag.fill(false);
+    }
+
+    if (suppressCandidatePressUntilRelease && holdToCandidate && candidateWithoutSelection && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+        // Unlock hold-drag candidate input after a real drag motion from initial press.
+        const bool hoveringCandidateCell = IsPointOverCandidateCell(GetMousePosition());
+        const float dragDistance = Vector2Distance(GetMousePosition(), suppressedPressStartPos);
+        if (hoveringCandidateCell && dragDistance >= 4.0f) {
+            suppressCandidatePressUntilRelease = false;
+        }
+    }
 
     // Draw outline
     DrawRectangle(x, y, width, height, selectedColor);
     Color ccol = selected ? selectedColor : inGridLine ? gridlineColor : color;
     DrawRectangle(x+1, y+1, width-2, height-2, ccol);
 
-    if (selected && isHovering && (text.empty() || text == "-1") ){
+    const bool canUseCandidateInput = (selected || candidateWithoutSelection) && isHovering && IsEditableEmptyTile();
+
+    if (canUseCandidateInput){
         int t = 1;
         // Draw small numbers inside
         for (int i = 0; i < 3; i++){
@@ -115,12 +188,15 @@ void TileButton::Draw() {
                 auto trec = Rectangle {(float)x + j * width/3, (float)y + i * height/3, (float)fontSize/2, (float)fontSize/2};
                 bool isHoveringTrec = CheckCollisionPointRec(GetMousePosition(), trec);
 
-                // Check if lmb pressed and toggle note if so
-                if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && isHoveringTrec){
-                    nlohmann::json autoCandidatesEnabled = GameData::storageManager->GetData("options_toggle_autocandidates");
-                    bool showAutoCandidates = autoCandidatesEnabled.contains("value") && autoCandidatesEnabled["value"];
-                    if (replayOverrideMode) {
-                        showAutoCandidates = replayAutoMode;
+                const bool untouchedInCurrentDrag = (t >= 1 && t <= 9) ? !candidateToggledThisDrag[t] : true;
+                const bool clickToggle = IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !suppressCandidatePressUntilRelease && untouchedInCurrentDrag;
+                const bool holdDragToggle = holdToCandidate && IsMouseButtonDown(MOUSE_BUTTON_LEFT) && !suppressCandidatePressUntilRelease && lastDraggedCandidate != t && untouchedInCurrentDrag;
+
+                // Toggle candidate on click or hold-drag.
+                if ((clickToggle || holdDragToggle) && isHoveringTrec){
+                    lastDraggedCandidate = t;
+                    if (t >= 1 && t <= 9) {
+                        candidateToggledThisDrag[t] = true;
                     }
 
                     if (showAutoCandidates) {
@@ -160,12 +236,6 @@ void TileButton::Draw() {
                 alpha *= 255;
 
                 auto col = textColor;
-
-                nlohmann::json autoCandidatesEnabled = GameData::storageManager->GetData("options_toggle_autocandidates");
-                bool showAutoCandidates = autoCandidatesEnabled.contains("value") && autoCandidatesEnabled["value"];
-                if (replayOverrideMode) {
-                    showAutoCandidates = replayAutoMode;
-                }
                 
                 bool alr = false;
                 if (showAutoCandidates) {
@@ -196,12 +266,6 @@ void TileButton::Draw() {
         Color color1 = showIsWrong ? wrongNumColor : selected ? textColor : permanent ? textColor3 : textColor2;
         DrawTextBC(text.c_str(), x, y, fontSize*1.25, width, height, color1);
     }else { // Else draw the notes or auto candidates
-        nlohmann::json autoCandidatesEnabled = GameData::storageManager->GetData("options_toggle_autocandidates");
-        bool showAutoCandidates = autoCandidatesEnabled.contains("value") && autoCandidatesEnabled["value"];
-        if (replayOverrideMode) {
-            showAutoCandidates = replayAutoMode;
-        }
-        
         int t = 1;
         // Draw small numbers inside
         for (int i = 0; i < 3; i++) {

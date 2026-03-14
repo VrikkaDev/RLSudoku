@@ -5,6 +5,7 @@
 #include "LeaderboardList.h"
 #include "Helpers/TimeHelper.h"
 #include "Helpers/TextHelper.h"
+#include "Helpers/UIHelper.h"
 #include <sstream>
 #include <iomanip>
 
@@ -16,6 +17,11 @@ LeaderboardList::LeaderboardList(Rectangle rec) : Drawable() {
 }
 
 void LeaderboardList::Draw() {
+    const int headerFont = std::max(12, UIHelper::ScaleFont(18));
+    const int rowFont = std::max(11, UIHelper::ScaleFont(16));
+    const int legendFont = std::max(10, UIHelper::ScaleFont(13));
+    rowHeight = std::max(28.0f, static_cast<float>(rowFont + 14));
+
     // Draw background
     DrawRectangle(x, y, width, height, ColorAlpha(DARKGRAY, 0.3f));
     DrawRectangleLines(x, y, width, height, GRAY);
@@ -29,7 +35,7 @@ void LeaderboardList::Draw() {
             scrollOffset -= wheelMove * rowHeight;
             
             // Clamp scroll offset
-            float maxScroll = std::max(0.0f, entries.size() * rowHeight - (height - 120)); // 120 = header + legend space
+            float maxScroll = std::max(0.0f, entries.size() * rowHeight - (height - (rowHeight * 3.5f))); // header + legend reserve
             scrollOffset = std::max(0.0f, std::min(scrollOffset, maxScroll));
         }
     }
@@ -37,13 +43,21 @@ void LeaderboardList::Draw() {
     // Column headers
     float headerY = y + 10;
     float textX = x + 10;
-    
-    DrawTextBCL("Rank", textX, headerY, 18, 18, LIGHTGRAY);
-    DrawTextBCL("Time", textX + 60, headerY, 18, 18, LIGHTGRAY);
-    DrawTextBCL("Difficulty", textX + 150, headerY, 18, 18, LIGHTGRAY);
-    DrawTextBCL("Assists", textX + 260, headerY, 18, 18, LIGHTGRAY);
-    DrawTextBCL("Player", textX + 340, headerY, 18, 18, LIGHTGRAY);
-    DrawTextBCL("Date", textX + 500, headerY, 18, 18, LIGHTGRAY);
+    const float contentW = std::max(100.0f, static_cast<float>(width - 20));
+
+    const float colRank = textX + contentW * 0.00f;
+    const float colTime = textX + contentW * 0.10f;
+    const float colDiff = textX + contentW * 0.24f;
+    const float colAssist = textX + contentW * 0.40f;
+    const float colPlayer = textX + contentW * 0.53f;
+    const float colDate = textX + contentW * 0.82f;
+
+    DrawTextBCL("Rank", colRank, headerY, headerFont, headerFont, LIGHTGRAY);
+    DrawTextBCL("Time", colTime, headerY, headerFont, headerFont, LIGHTGRAY);
+    DrawTextBCL("Diff", colDiff, headerY, headerFont, headerFont, LIGHTGRAY);
+    DrawTextBCL("Ast", colAssist, headerY, headerFont, headerFont, LIGHTGRAY);
+    DrawTextBCL("Player", colPlayer, headerY, headerFont, headerFont, LIGHTGRAY);
+    DrawTextBCL("Date", colDate, headerY, headerFont, headerFont, LIGHTGRAY);
     
     // Draw entries (without scissor mode for now - will add back later)
     float entryY = headerY + 30 - scrollOffset;
@@ -84,15 +98,15 @@ void LeaderboardList::Draw() {
         
         // Rank
         std::string rankStr = std::to_string(i + 1);
-        DrawTextBCL(rankStr.c_str(), textX, entryY + 5, 18, 18, textColor);
+        DrawTextBCL(rankStr.c_str(), colRank, entryY + 5, rowFont, rowFont, textColor);
         
         // Time
         std::string timeStr = TimeHelper::GetTimeFormatted(entry.completionTime);
-        DrawTextBCL(timeStr.c_str(), textX + 60, entryY + 5, 18, 18, textColor);
+        DrawTextBCL(timeStr.c_str(), colTime, entryY + 5, rowFont, rowFont, textColor);
         
         // Difficulty
         std::string diffStr = std::to_string(entry.difficulty);
-        DrawTextBCL(diffStr.c_str(), textX + 180, entryY + 5, 18, 18, textColor);
+        DrawTextBCL(diffStr.c_str(), colDiff, entryY + 5, rowFont, rowFont, textColor);
         
         // Assists indicator
         std::string assistStr;
@@ -100,28 +114,34 @@ void LeaderboardList::Draw() {
         if (entry.usedAutoCheck) assistStr += "A";
         if (entry.usedConflictHighlight) assistStr += "H";
         if (assistStr.empty()) assistStr = "-";
-        DrawTextBCL(assistStr.c_str(), textX + 280, entryY + 5, 18, 18, textColor);
+        DrawTextBCL(assistStr.c_str(), colAssist, entryY + 5, rowFont, rowFont, textColor);
 
         // Submitter / player
         std::string playerStr = entry.playerName.empty() ? std::string("Unknown") : entry.playerName;
-        if (playerStr.size() > 14) {
-            playerStr = playerStr.substr(0, 14);
+        size_t maxPlayerLen = 14;
+        if (width < 650) {
+            maxPlayerLen = 10;
+        } else if (width < 850) {
+            maxPlayerLen = 12;
         }
-        DrawTextBCL(playerStr.c_str(), textX + 340, entryY + 5, 18, 18, textColor);
+        if (playerStr.size() > maxPlayerLen) {
+            playerStr = playerStr.substr(0, maxPlayerLen);
+        }
+        DrawTextBCL(playerStr.c_str(), colPlayer, entryY + 5, rowFont, rowFont, textColor);
         
         // Date
         char dateStr[32];
         std::tm* timeinfo = std::localtime(&entry.completedAt);
         std::strftime(dateStr, sizeof(dateStr), "%m/%d/%y", timeinfo);
-        DrawTextBCL(dateStr, textX + 500, entryY + 5, 16, 16, textColor);
+        DrawTextBCL(dateStr, colDate, entryY + 5, std::max(10, rowFont - 1), rowFont, textColor);
         
         entryY += rowHeight;
     }
     
     // Legend at bottom
     float legendY = y + height - 50;
-    DrawTextBCL("Legend: C=AutoCandidates, A=AutoCheck, H=Highlight", x + 10, legendY, 14, 14, GRAY);
-    DrawTextBCL("Yellow=Assisted, White=Clean", x + 10, legendY + 18, 14, 14, GRAY);
+    DrawTextBCL("Legend: C=AutoCandidates, A=AutoCheck, H=Highlight", x + 10, legendY, legendFont, legendFont, GRAY);
+    DrawTextBCL("Yellow=Assisted, White=Clean", x + 10, legendY + std::max(14, legendFont + 4), legendFont, legendFont, GRAY);
 }
 
 const LeaderboardEntry* LeaderboardList::GetSelectedEntry() const {

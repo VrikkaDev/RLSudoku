@@ -87,3 +87,34 @@ void DrawTooltipB(const char* text, int fontSize, Color bgColor, Color color){
     }
 }
 
+int GetFittedFontSize(const char* text, int preferredFontSize, int minFontSize, float maxWidth) {
+    if (!text || preferredFontSize <= 0) {
+        return std::max(1, preferredFontSize);
+    }
+
+    int fitted = std::max(minFontSize, preferredFontSize);
+    if (maxWidth <= 4.0f) {
+        return minFontSize;
+    }
+
+    std::vector<std::string> lines = StringHelper::SplitString(text, '\n');
+    if (lines.empty()) {
+        lines.emplace_back(text);
+    }
+
+    auto measureLongestLine = [&lines](int size) {
+        float longest = 0.0f;
+        for (const auto& line : lines) {
+            Vector2 measured = MeasureTextEx(Fonts::default_font, line.c_str(), static_cast<float>(size), 1.0f);
+            longest = std::max(longest, measured.x);
+        }
+        return longest;
+    };
+
+    while (fitted > minFontSize && measureLongestLine(fitted) > maxWidth) {
+        --fitted;
+    }
+
+    return fitted;
+}
+

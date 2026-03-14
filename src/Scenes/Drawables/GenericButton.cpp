@@ -3,18 +3,8 @@
 //
 
 #include "GenericButton.h"
-#include "GameData.h"
-#include "Storage/StorageManager.h"
-
-namespace {
-bool IsDarkModeEnabled() {
-    if (!GameData::storageManager) {
-        return false;
-    }
-    nlohmann::json mode = GameData::storageManager->GetData("options_toggle_darkmode");
-    return mode.contains("value") && mode["value"].is_boolean() && mode["value"];
-}
-}
+#include "Helpers/UIHelper.h"
+#include "Helpers/TextHelper.h"
 
 GenericButton::GenericButton() : Drawable() {
     width = 300;
@@ -34,7 +24,7 @@ GenericButton::GenericButton(const char* txt, Rectangle rec){
 
 void GenericButton::Draw() {
 
-    if (IsDarkModeEnabled()) {
+    if (UIHelper::IsDarkModeEnabled()) {
         if (color.r == GRAY.r && color.g == GRAY.g && color.b == GRAY.b && color.a == GRAY.a) {
             color = CLITERAL(Color){55, 55, 62, 255};
         }
@@ -66,6 +56,7 @@ void GenericButton::Draw() {
     bool isPressed = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
 
     DrawRectangle(x, y, width, height, isHovering ? isPressed ? pressColor : hoverColor : color);
-    DrawTextBC(text.c_str(), x, y, fontSize, width, height, textColor);
+    const int fittedFont = GetFittedFontSize(text.c_str(), fontSize, 10, static_cast<float>(width - 10));
+    DrawTextBC(text.c_str(), x, y, fittedFont, width, height, textColor);
 }
 

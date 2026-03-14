@@ -5,6 +5,8 @@
 #include "ConfigToggleButton.h"
 #include "GameData.h"
 #include "Storage/StorageManager.h"
+#include "Helpers/UIHelper.h"
+#include "Helpers/TextHelper.h"
 
 ConfigToggleButton::ConfigToggleButton(const char* save_token) : Drawable(), Saveable(save_token) {
 
@@ -31,8 +33,7 @@ void ConfigToggleButton::OnStart() {
 }
 
 void ConfigToggleButton::Draw() {
-    nlohmann::json darkMode = GameData::storageManager->GetData("options_toggle_darkmode");
-    bool isDarkMode = darkMode.contains("value") && darkMode["value"].is_boolean() && darkMode["value"];
+    bool isDarkMode = UIHelper::IsDarkModeEnabled();
     if (isDarkMode) {
         if (color.r == GRAY.r && color.g == GRAY.g && color.b == GRAY.b && color.a == GRAY.a) {
             color = CLITERAL(Color){55, 55, 62, 255};
@@ -58,20 +59,25 @@ void ConfigToggleButton::Draw() {
     bool isHovering = CheckCollisionPointRec(GetMousePosition(), GetRectangle());
     bool isPressed = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
 
+    // Scale the toggle symbol with button height (baseline button height is 50px).
+    const float symbolScale = std::max(0.1f, height / 50.0f);
+    const float effectiveToggleSize = std::clamp(togglesymbolSize * symbolScale, 10.0f, std::max(10.0f, height - 4.0f));
+    const float dif = height - effectiveToggleSize;
+
+    auto riRect = Rectangle {(float)x + width - effectiveToggleSize - dif/2, (float)y + dif/2, (float)effectiveToggleSize, (float)effectiveToggleSize};
+
     DrawRectangle(x, y, width, height, isHovering ? isPressed ? pressColor : hoverColor : color);
-    // plus is so it isn't too far left
-    DrawTextBCL(text.c_str(), x+5, y, fontSize, height, textColor);
-
-    // Calculate the offset from edges
-    float dif = height - togglesymbolSize;
-
-    auto riRect = Rectangle {(float)x + width - togglesymbolSize - dif/2, (float)y + dif/2, (float)togglesymbolSize, (float)togglesymbolSize};
+    // Fit left label text to available width (exclude toggle symbol area).
+    const float textRightLimit = riRect.x - 8.0f;
+    const float textAreaWidth = std::max(10.0f, textRightLimit - static_cast<float>(x + 5));
+    const int fittedFont = GetFittedFontSize(text.c_str(), fontSize, 10, textAreaWidth);
+    DrawTextBCL(text.c_str(), x+5, y, fittedFont, height, textColor);
 
     DrawRectangleRoundedLines(riRect, togglesymbolRounded, togglesymbolSegments, 2.f, CLITERAL(Color){ 40, 40, 40, 255 } );
 
     // Draw the x if value is true
     if(value){
-        DrawTextBC("X", riRect.x, riRect.y, togglesymbolSize, riRect.width, riRect.height, BLACK);
+        DrawTextBC("X", riRect.x, riRect.y, static_cast<int>(effectiveToggleSize), riRect.width, riRect.height, BLACK);
     }
 
     // Draw Tooltip

@@ -8,6 +8,7 @@
 
 #include "Graphics/Drawable.h"
 #include "Storage/Saveable.h"
+#include <array>
 
 class TileButton : public Drawable{
 public:
@@ -49,6 +50,8 @@ public:
     std::vector<int> getAutoCandidates();
     void updateAutoCandidateDisplay();
     void SetReplayMode(bool overrideEnabled, bool autoMode);
+    bool IsEditableEmptyTile() const;
+    bool IsPointOverCandidateCell(Vector2 point, int* candidateValue = nullptr) const;
     
     std::vector<int> conflicts = {};
     std::vector<int> notes = {};
@@ -58,6 +61,12 @@ public:
 
     bool replayOverrideMode = false;
     bool replayAutoMode = false;
+
+private:
+    int lastDraggedCandidate = 0;
+    bool suppressCandidatePressUntilRelease = false;
+    Vector2 suppressedPressStartPos = Vector2{0.0f, 0.0f};
+    std::array<bool, 10> candidateToggledThisDrag{};
 };
 
 

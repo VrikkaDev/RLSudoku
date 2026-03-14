@@ -4,17 +4,9 @@
 
 #include "TextWidget.h"
 #include "Helpers/TextHelper.h"
-#include "GameData.h"
-#include "Storage/StorageManager.h"
+#include "Helpers/UIHelper.h"
 
 namespace {
-bool IsDarkModeEnabled() {
-    if (!GameData::storageManager) {
-        return false;
-    }
-    nlohmann::json mode = GameData::storageManager->GetData("options_toggle_darkmode");
-    return mode.contains("value") && mode["value"].is_boolean() && mode["value"];
-}
 
 Color ResolveTextColor(Color baseColor, bool darkMode) {
     if (!darkMode) {
@@ -46,11 +38,11 @@ TextWidget::TextWidget(const std::string& text, int x, int y, int fontSize, Colo
 }
 
 void TextWidget::Draw() {
-    Color drawColor = ResolveTextColor(color, IsDarkModeEnabled());
+    Color drawColor = ResolveTextColor(color, UIHelper::IsDarkModeEnabled());
     if (centered) {
         int textWidth = MeasureText(text.c_str(), fontSize);
         DrawTextBC(text.c_str(), x - textWidth / 2, y, fontSize, textWidth, fontSize, drawColor);
     } else {
-        DrawTextBC(text.c_str(), x, y, fontSize, 1000, fontSize, drawColor);
+        DrawTextB(text.c_str(), x, y, fontSize, drawColor);
     }
 }

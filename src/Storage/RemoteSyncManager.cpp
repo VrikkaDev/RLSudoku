@@ -22,6 +22,10 @@
 namespace {
 
 constexpr const char* kClientVersion = "1.0.0";
+constexpr int kHttpResolveTimeoutMs = 1500;
+constexpr int kHttpConnectTimeoutMs = 2000;
+constexpr int kHttpSendTimeoutMs = 2500;
+constexpr int kHttpReceiveTimeoutMs = 2500;
 
 std::string BuildRemoteUrl(const std::string& serverIp, int serverPort, bool useHttps) {
     const std::string host = serverIp.empty() ? std::string("127.0.0.1") : serverIp;
@@ -327,8 +331,16 @@ void RemoteSyncManager::ForceSync() {
     }
 
     std::lock_guard<std::mutex> lock(syncMutex);
-    if (PerformSync()) {
-        lastSuccessfulSync = std::chrono::steady_clock::now();
+    try {
+        if (PerformSync()) {
+            lastSuccessfulSync = std::chrono::steady_clock::now();
+        }
+    } catch (const std::exception& e) {
+        std::cout << "[RemoteSync] ForceSync failed: " << e.what() << std::endl;
+        connectionState.store(ConnectionState::Error);
+    } catch (...) {
+        std::cout << "[RemoteSync] ForceSync failed with unknown error." << std::endl;
+        connectionState.store(ConnectionState::Error);
     }
 }
 
@@ -351,11 +363,19 @@ void RemoteSyncManager::StartSyncAsync() {
 
     syncInFlight.store(true);
     syncThread = std::thread([this]() {
-        {
-            std::lock_guard<std::mutex> lock(syncMutex);
-            if (PerformSync()) {
-                lastSuccessfulSync = std::chrono::steady_clock::now();
+        try {
+            {
+                std::lock_guard<std::mutex> lock(syncMutex);
+                if (PerformSync()) {
+                    lastSuccessfulSync = std::chrono::steady_clock::now();
+                }
             }
+        } catch (const std::exception& e) {
+            std::cout << "[RemoteSync] Background sync failed: " << e.what() << std::endl;
+            connectionState.store(ConnectionState::Error);
+        } catch (...) {
+            std::cout << "[RemoteSync] Background sync failed with unknown error." << std::endl;
+            connectionState.store(ConnectionState::Error);
         }
         syncInFlight.store(false);
     });
@@ -388,17 +408,25 @@ void RemoteSyncManager::StartInitialPullAsync() {
     }
 
     initialPullThread = std::thread([this]() {
-        std::lock_guard<std::mutex> lock(syncMutex);
-        PerformInitialPull();
+        try {
+            std::lock_guard<std::mutex> lock(syncMutex);
+            PerformInitialPull();
 
-        if (initialPullPerformed) {
-            connectionState.store(ConnectionState::Connected);
-        } else {
-            if (config.username.empty()) {
-                connectionState.store(ConnectionState::NotConfigured);
+            if (initialPullPerformed) {
+                connectionState.store(ConnectionState::Connected);
             } else {
-                connectionState.store(ConnectionState::Error);
+                if (config.username.empty()) {
+                    connectionState.store(ConnectionState::NotConfigured);
+                } else {
+                    connectionState.store(ConnectionState::Error);
+                }
             }
+        } catch (const std::exception& e) {
+            std::cout << "[RemoteSync] Initial pull failed: " << e.what() << std::endl;
+            connectionState.store(ConnectionState::Error);
+        } catch (...) {
+            std::cout << "[RemoteSync] Initial pull failed with unknown error." << std::endl;
+            connectionState.store(ConnectionState::Error);
         }
     });
 }
@@ -421,19 +449,27 @@ void RemoteSyncManager::StartKeepAliveAsync() {
     keepAliveInFlight.store(true);
     keepAliveThread = std::thread([this]() {
         bool ok = false;
-        {
-            std::lock_guard<std::mutex> lock(syncMutex);
-            if (EnsureAuthToken()) {
-                if (!versionPolicyChecked) {
-                    FetchClientPolicyFromServer();
-                }
-                HttpResponse response;
+        try {
+            {
+                std::lock_guard<std::mutex> lock(syncMutex);
+                if (EnsureAuthToken()) {
+                    if (!versionPolicyChecked) {
+                        FetchClientPolicyFromServer();
+                    }
+                    HttpResponse response;
 #ifdef _WIN32
-                ok = SendRequest(L"GET", BuildPath("api/auth/me"), "", response) && response.statusCode == 200;
+                    ok = SendRequest(L"GET", BuildPath("api/auth/me"), "", response) && response.statusCode == 200;
 #else
-                ok = SendCurlRequest("GET", BuildUrl("api/auth/me"), "", response) && response.statusCode == 200;
+                    ok = SendCurlRequest("GET", BuildUrl("api/auth/me"), "", response) && response.statusCode == 200;
 #endif
+                }
             }
+        } catch (const std::exception& e) {
+            std::cout << "[RemoteSync] Keepalive failed: " << e.what() << std::endl;
+            ok = false;
+        } catch (...) {
+            std::cout << "[RemoteSync] Keepalive failed with unknown error." << std::endl;
+            ok = false;
         }
 
         if (ok) {
@@ -499,6 +535,10 @@ void RemoteSyncManager::OnExit() {
     JoinInitialPullThread();
     JoinKeepAliveThread();
     JoinSyncThread();
+    // Don't block shutdown with extra network calls when offline.
+    if (connectionState.load() != ConnectionState::Connected) {
+        return;
+    }
     // Final best-effort flush if something remained dirty due to transient failures.
     ForceSync();
 }
@@ -529,18 +569,15 @@ std::string RemoteSyncManager::GetClientVersion() const {
 }
 
 bool RemoteSyncManager::IsVersionPolicyChecked() const {
-    std::lock_guard<std::mutex> lock(syncMutex);
-    return versionPolicyChecked;
+    return versionPolicyChecked.load();
 }
 
 bool RemoteSyncManager::HasUpdateAvailable() const {
-    std::lock_guard<std::mutex> lock(syncMutex);
-    return updateAvailable;
+    return updateAvailable.load();
 }
 
 bool RemoteSyncManager::IsUpdateRequired() const {
-    std::lock_guard<std::mutex> lock(syncMutex);
-    return updateRequired;
+    return updateRequired.load();
 }
 
 std::string RemoteSyncManager::GetVersionPolicyMessage() const {
@@ -560,7 +597,7 @@ std::string RemoteSyncManager::GetConnectionStatusText() const {
         case ConnectionState::Connected:
             return HasDirtyData() ? "Sync: Connected (pending upload)" : "Sync: Connected";
         case ConnectionState::Error:
-            return "Sync: Connection failed";
+            return "Sync: Connection failed (server may still be starting)";
         case ConnectionState::Disabled:
             return "Sync: Unavailable";
         case ConnectionState::NotConfigured:
@@ -1128,6 +1165,12 @@ bool RemoteSyncManager::SendRequest(const std::wstring& method, const std::wstri
         WinHttpSetOption(request, WINHTTP_OPTION_SECURE_PROTOCOLS, &secureProtocols, sizeof(secureProtocols));
     }
 
+    WinHttpSetTimeouts(request,
+                       kHttpResolveTimeoutMs,
+                       kHttpConnectTimeoutMs,
+                       kHttpSendTimeoutMs,
+                       kHttpReceiveTimeoutMs);
+
     lastOutboundPacket = std::chrono::steady_clock::now();
 
     std::wstring headers = L"User-Agent: RLSudoku/" + ToWide(kClientVersion) + L"\r\nAccept: application/json\r\n";
@@ -1237,6 +1280,8 @@ bool RemoteSyncManager::SendCurlRequest(const std::string& method, const std::st
 
     std::string buffer;
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, static_cast<long>(kHttpConnectTimeoutMs));
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, static_cast<long>(kHttpConnectTimeoutMs + kHttpSendTimeoutMs + kHttpReceiveTimeoutMs));
     std::string userAgent = std::string("RLSudoku/") + kClientVersion;
     curl_easy_setopt(curl, CURLOPT_USERAGENT, userAgent.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](char* ptr, size_t size, size_t nmemb, void* userdata) -> size_t {

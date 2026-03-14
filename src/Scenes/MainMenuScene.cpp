@@ -11,6 +11,7 @@
 #include "GameScene.h"
 #include "Storage/StorageManager.h"
 #include "Helpers/TimeHelper.h"
+#include "Helpers/UIHelper.h"
 #include "StatisticsScene.h"
 #include "Scenes/Drawables/TextWidget.h"
 #include "Storage/RemoteSyncManager.h"
@@ -21,34 +22,44 @@ MainMenuScene::MainMenuScene() : Scene() {
 }
 
 void MainMenuScene::Setup() {
+    const float screenW = static_cast<float>(GetScreenWidth());
+    const float screenH = static_cast<float>(GetScreenHeight());
+
+    const float gapY = UIHelper::ScaleY(10.0f);
+    const float centerX = screenW * 0.5f;
+    const float baseTopY = screenH * 0.5f - UIHelper::ScaleY(25.0f);
 
     // Options button
-    float ow = 220, oh = 50, ox = GetScreenWidth()/2 - ow/2, oy = GetScreenHeight()/2 - oh/2;
+    float ow = UIHelper::ScaleX(220.0f), oh = UIHelper::ScaleY(50.0f), ox = centerX - ow/2.0f, oy = baseTopY;
     auto ob = new GenericButton("Options", Rectangle{ox,oy,ow,oh});
+    ob->fontSize = UIHelper::ScaleFont(50);
     ob->OnClick = [](MouseEvent* event) {
         GameData::SetScene(std::make_unique<OptionsScene>());
     };
     drawableStack->AddDrawable(ob);
 
     // Leaderboard button
-    float lw = 280, lh = 50, lx = GetScreenWidth()/2 - lw/2, ly = oy + oh + 10;
+    float lw = UIHelper::ScaleX(280.0f), lh = UIHelper::ScaleY(50.0f), lx = centerX - lw/2.0f, ly = oy + oh + gapY;
     auto lb = new GenericButton("Leaderboards", Rectangle{lx,ly,lw,lh});
+    lb->fontSize = UIHelper::ScaleFont(50);
     lb->OnClick = [](MouseEvent* event) {
         GameData::SetScene(std::make_unique<LeaderboardScene>());
     };
     drawableStack->AddDrawable(lb);
 
     // Statistics button
-    float sw = 240, sh = 50, sx = GetScreenWidth()/2 - sw/2, sy = ly + lh + 10;
+    float sw = UIHelper::ScaleX(240.0f), sh = UIHelper::ScaleY(50.0f), sx = centerX - sw/2.0f, sy = ly + lh + gapY;
     auto sb = new GenericButton("Statistics", Rectangle{sx,sy,sw,sh});
+    sb->fontSize = UIHelper::ScaleFont(50);
     sb->OnClick = [](MouseEvent* event) {
         GameData::SetScene(std::make_unique<StatisticsScene>());
     };
     drawableStack->AddDrawable(sb);
 
     // Quit button
-    float qw = 190, qh = 50, qx = GetScreenWidth()/2 - qw/2, qy = sy + sh + 10;
+    float qw = UIHelper::ScaleX(190.0f), qh = UIHelper::ScaleY(50.0f), qx = centerX - qw/2.0f, qy = sy + sh + gapY;
     auto qb = new GenericButton("Quit", Rectangle{qx,qy,qw,qh});
+    qb->fontSize = UIHelper::ScaleFont(50);
     qb->OnClick = [](MouseEvent* event) {
         GameData::isRunning = false;
     };
@@ -58,14 +69,18 @@ void MainMenuScene::Setup() {
 
     std::map<const char*, int> difficultyMap = {{"Easy", 20}, {"Medium", 40}, {"Hard", 50}, {"Very Hard", 60}};
 
-    float dw = 200, dh = 50, dx = GetScreenWidth()/2 - dw/2 + 260, dy = GetScreenHeight()/2 - dh/2 - 70;
+    float dw = UIHelper::ScaleX(200.0f), dh = UIHelper::ScaleY(50.0f);
+    float dy = baseTopY - UIHelper::ScaleY(70.0f);
+    float dx = centerX + UIHelper::ScaleX(260.0f) - dw/2.0f;
     auto db = new GenericDropdown(difficultyMap,
                                   "menu_difficulty_dropdown", Rectangle{dx,dy,dw,dh});
+    db->fontSize = UIHelper::ScaleFont(40);
     drawableStack->AddDrawable(db);
 
     // Generate game button
-    float gw = 250, gh = 50, gx = GetScreenWidth()/2 - gw/2, gy = GetScreenHeight()/2 - gh/2 - 70;
+    float gw = UIHelper::ScaleX(250.0f), gh = UIHelper::ScaleY(50.0f), gx = centerX - gw/2.0f, gy = dy;
     auto gb = new GenericButton("Generate", Rectangle{gx,gy,gw,gh});
+    gb->fontSize = UIHelper::ScaleFont(50);
     gb->OnClick = [db](MouseEvent* event) {
         GameData::SetScene(std::make_unique<GameScene>(db->GetSelectedValue()));
     };
@@ -74,7 +89,7 @@ void MainMenuScene::Setup() {
     // Continue game button
     nlohmann::json json = GameData::storageManager->GetData("game_save");
     if(json.contains("difficulty")){
-        float cw = 260, ch = 100, cx = 5, cy = GetScreenHeight()/2 - ch/2 - 70;
+        float cw = UIHelper::ScaleX(260.0f), ch = UIHelper::ScaleY(100.0f), cx = UIHelper::ScaleX(5.0f), cy = dy;
         int val = (int)json["difficulty"];
         auto result = std::find_if(
                 difficultyMap.begin(),
@@ -83,27 +98,27 @@ void MainMenuScene::Setup() {
         std::string tim = TimeHelper::GetTimeFormatted((double)json["time"]);
         std::string n = "Continue.\nDifficulty: " + std::string(result->first) + "\nTime: " + tim;
         auto cb = new GenericButton(n.c_str(), Rectangle{cx,cy,cw,ch});
-        cb->fontSize = 30;
+        cb->fontSize = UIHelper::ScaleFont(30);
         cb->OnClick = [](MouseEvent* event) {
             GameData::SetScene(std::make_unique<GameScene>(true));
         };
         drawableStack->AddDrawable(cb);
     }
 
-    int statusY = static_cast<int>(GetScreenHeight() - 36);
-    syncStatusText = new TextWidget("Sync: Connecting...", 16, statusY, 20, DARKGRAY, false);
+    int statusY = static_cast<int>(screenH - UIHelper::ScaleY(36.0f));
+    syncStatusText = new TextWidget("Sync: Connecting...", static_cast<int>(UIHelper::ScaleX(16.0f)), statusY, UIHelper::ScaleFont(20), DARKGRAY, false);
     drawableStack->AddDrawable(syncStatusText);
 
-    int versionY = statusY - 24;
-    versionStatusText = new TextWidget("Version: checking policy...", 16, versionY, 18, DARKGRAY, false);
+    int versionY = statusY - UIHelper::ScaleFont(24);
+    versionStatusText = new TextWidget("Version: checking policy...", static_cast<int>(UIHelper::ScaleX(16.0f)), versionY, UIHelper::ScaleFont(18), DARKGRAY, false);
     drawableStack->AddDrawable(versionStatusText);
 
-    float updateW = 220.0f;
-    float updateH = 42.0f;
-    float updateX = GetScreenWidth() - updateW - 16.0f;
-    float updateY = static_cast<float>(versionY - 8);
+    float updateW = std::max(UIHelper::ScaleX(180.0f), std::min(UIHelper::ScaleX(240.0f), screenW * 0.26f));
+    float updateH = UIHelper::ScaleY(42.0f);
+    float updateX = screenW - updateW - UIHelper::ScaleX(16.0f);
+    float updateY = static_cast<float>(versionY - UIHelper::ScaleFont(8));
     updateButton = new GenericButton("No Update", Rectangle{updateX, updateY, updateW, updateH});
-    updateButton->fontSize = 20;
+    updateButton->fontSize = UIHelper::ScaleFont(20);
     updateButton->enabled = false;
     updateButton->color = Color{60, 60, 60, 255};
     updateButton->hoverColor = updateButton->color;
@@ -154,8 +169,13 @@ void MainMenuScene::OnUpdate() {
         }
 
         if (!GameData::remoteSyncManager->IsVersionPolicyChecked()) {
-            versionStatusText->text = "Version: checking policy...";
-            versionStatusText->color = DARKGRAY;
+            if (state == RemoteSyncManager::ConnectionState::Error || state == RemoteSyncManager::ConnectionState::Connecting) {
+                versionStatusText->text = "Server startup can take up to a minute.";
+                versionStatusText->color = ORANGE;
+            } else {
+                versionStatusText->text = "Version: checking policy...";
+                versionStatusText->color = DARKGRAY;
+            }
             updateButton->enabled = false;
             updateButton->text = "No Update";
             Color disabledColor{60, 60, 60, 255};

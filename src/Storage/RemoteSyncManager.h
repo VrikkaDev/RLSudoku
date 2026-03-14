@@ -105,9 +105,9 @@ private:
     std::chrono::steady_clock::time_point lastOutboundPacket;
     std::chrono::steady_clock::time_point lastReconnectAttempt;
     bool initialPullPerformed = false;
-    bool versionPolicyChecked = false;
-    bool updateAvailable = false;
-    bool updateRequired = false;
+    std::atomic<bool> versionPolicyChecked{false};
+    std::atomic<bool> updateAvailable{false};
+    std::atomic<bool> updateRequired{false};
     std::string versionPolicyMessage;
     std::string updateDownloadUrl;
     std::string latestServerVersion;

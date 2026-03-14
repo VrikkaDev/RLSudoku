@@ -3,19 +3,8 @@
 //
 
 #include "GenericDropdown.h"
-#include "GameData.h"
+#include "Helpers/UIHelper.h"
 #include "Scenes/Scene.h"
-#include "Storage/StorageManager.h"
-
-namespace {
-bool IsDarkModeEnabled() {
-    if (!GameData::storageManager) {
-        return false;
-    }
-    nlohmann::json mode = GameData::storageManager->GetData("options_toggle_darkmode");
-    return mode.contains("value") && mode["value"].is_boolean() && mode["value"];
-}
-}
 
 GenericDropdown::GenericDropdown() : Drawable(), Saveable("generic_dropdown"){
     width = 300;
@@ -39,7 +28,7 @@ void GenericDropdown::OnStart() {
         isOpened = !isOpened;
 
         if(isOpened){
-            const bool darkMode = IsDarkModeEnabled();
+            const bool darkMode = UIHelper::IsDarkModeEnabled();
             for (int i = 1; i <= texts.size(); i++) {
                 auto r = Rectangle{(float)x, (float)y + height * i, (float)width, (float)height};
                 // Get the correct text
@@ -83,7 +72,7 @@ void GenericDropdown::OnStart() {
 }
 
 void GenericDropdown::Draw() {
-    if (IsDarkModeEnabled()) {
+    if (UIHelper::IsDarkModeEnabled()) {
         if (color.r == GRAY.r && color.g == GRAY.g && color.b == GRAY.b && color.a == GRAY.a) {
             color = CLITERAL(Color){55, 55, 62, 255};
         }

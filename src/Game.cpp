@@ -11,16 +11,7 @@
 #include "Scenes/OptionsScene.h"
 #include "Storage/StatisticsManager.h"
 #include "Storage/RemoteSyncManager.h"
-
-namespace {
-bool IsDarkModeEnabled() {
-    if (!GameData::storageManager) {
-        return false;
-    }
-    nlohmann::json mode = GameData::storageManager->GetData("options_toggle_darkmode");
-    return mode.contains("value") && mode["value"].is_boolean() && mode["value"];
-}
-}
+#include "Helpers/UIHelper.h"
 
 void Game::Run() {
 
@@ -42,7 +33,7 @@ void Game::Run() {
     {
 
         BeginDrawing();
-        if (IsDarkModeEnabled()) {
+        if (UIHelper::IsDarkModeEnabled()) {
             ClearBackground(CLITERAL(Color){ 28, 28, 34, 255 });
         } else {
             ClearBackground(CLITERAL(Color){ 220, 220, 220, 255 });

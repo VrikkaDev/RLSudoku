@@ -12,6 +12,7 @@
 #include "ClockWidget.h"
 #include "Event/GameEvent.h"
 #include "Scenes/Scene.h"
+#include "Helpers/UIHelper.h"
 #include <algorithm>
 
 namespace {
@@ -25,13 +26,6 @@ std::vector<int> ValuesFromMask(uint16_t mask) {
     return values;
 }
 
-bool IsDarkModeEnabled() {
-    if (!GameData::storageManager) {
-        return false;
-    }
-    nlohmann::json mode = GameData::storageManager->GetData("options_toggle_darkmode");
-    return mode.contains("value") && mode["value"].is_boolean() && mode["value"];
-}
 }
 
 TileGrid::TileGrid() : Drawable(){
@@ -97,9 +91,23 @@ void TileGrid::OnStart() {
             return;
         }
 
+        nlohmann::json noSelectCfg = GameData::storageManager->GetData("options_toggle_candidateswithoutselection");
+        bool candidateWithoutSelection = noSelectCfg.contains("value") && noSelectCfg["value"].is_boolean() && noSelectCfg["value"];
+        nlohmann::json candidatePriorityCfg = GameData::storageManager->GetData("options_toggle_candidatepriority");
+        bool candidatePriority = !candidatePriorityCfg.contains("value") || !candidatePriorityCfg["value"].is_boolean() || candidatePriorityCfg["value"];
+
         for (auto* dr : children){
             if (!CheckCollisionPointRec(event->MousePosition, dr->GetRectangle())){
                 continue;
+            }
+
+            if (candidatePriority && candidateWithoutSelection && event->EventType == 1) {
+                if (auto* tile = dynamic_cast<TileButton*>(dr)) {
+                    if (tile->IsEditableEmptyTile() && tile->IsPointOverCandidateCell(event->MousePosition)) {
+                        // Let candidate interaction handle this click without changing selected tile first.
+                        return;
+                    }
+                }
             }
 
             dr->OnClick(event);
@@ -244,7 +252,7 @@ void TileGrid::OnStart() {
 }
 
 void TileGrid::Draw() {
-    if (IsDarkModeEnabled()) {
+    if (UIHelper::IsDarkModeEnabled()) {
         if (color.r == DARKGRAY.r && color.g == DARKGRAY.g && color.b == DARKGRAY.b && color.a == DARKGRAY.a) {
             color = CLITERAL(Color){110, 110, 122, 255};
         }
@@ -263,7 +271,7 @@ void TileGrid::Draw() {
 
     // Draw pause screen
     if(isPaused){
-        const bool darkMode = IsDarkModeEnabled();
+        const bool darkMode = UIHelper::IsDarkModeEnabled();
         Color overlay = darkMode ? CLITERAL(Color){35, 35, 42, 235} : CLITERAL(Color){150, 150, 150, 255};
         Color overlayText = darkMode ? CLITERAL(Color){225, 225, 232, 255} : color;
         DrawRectangle(x, y, width-1, height-1, overlay);
