@@ -121,6 +121,14 @@ void OptionsScene::Setup() {
     rlbb->defaultValue = true;
     drawableStack->AddDrawable(rlbb);
 
+    // Offline mode toggle (disables remote sync connection attempts).
+    float oflw = UIHelper::ScaleX(340.0f), oflh = UIHelper::ScaleY(50.0f), oflx = UIHelper::ScaleX(350.0f), ofly = GetScreenHeight() - oflh*10;
+    auto oflb = new ConfigToggleButton("options_toggle_offline_sync", "Offline Mode (Disable Sync)", Rectangle{oflx, ofly, oflw, oflh});
+    oflb->tooltip = "When enabled, the game will not connect to the server \nand all remote sync network traffic is paused.";
+    oflb->fontSize = UIHelper::ScaleFont(20);
+    oflb->defaultValue = false;
+    drawableStack->AddDrawable(oflb);
+
     // Tile selection trigger dropdown (mouse down / mouse up / both)
     std::map<const char*, int> tileSelectMap = {
         {"Tile Select: Mouse Down", 0},

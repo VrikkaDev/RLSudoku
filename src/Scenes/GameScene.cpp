@@ -12,6 +12,7 @@
 #include "Scenes/Drawables/NumberButtons.h"
 #include "Scenes/Drawables/ConfigToggleButton.h"
 #include "Scenes/Drawables/TextWidget.h"
+#include "Helpers/StringHelper.h"
 #include "Storage/StorageManager.h"
 #include "Storage/StatisticsManager.h"
 #include "Storage/RemoteSyncManager.h"
@@ -54,23 +55,9 @@ bool IsLeaderboardRecordingEnabled() {
     return recordLeaderboards["value"];
 }
 
-std::string TrimCopy(const std::string& value) {
-    size_t start = 0;
-    size_t end = value.size();
-
-    while (start < end && std::isspace(static_cast<unsigned char>(value[start])) != 0) {
-        ++start;
-    }
-    while (end > start && std::isspace(static_cast<unsigned char>(value[end - 1])) != 0) {
-        --end;
-    }
-
-    return value.substr(start, end - start);
-}
-
 std::string ResolvePlayerName() {
     if (GameData::remoteSyncManager) {
-        std::string remoteName = TrimCopy(GameData::remoteSyncManager->GetConfig().username);
+        std::string remoteName = StringHelper::TrimCopy(GameData::remoteSyncManager->GetConfig().username);
         if (!remoteName.empty()) {
             return remoteName;
         }

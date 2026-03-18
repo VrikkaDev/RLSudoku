@@ -132,10 +132,8 @@ void LeaderboardList::Draw() {
         DrawTextBCL(playerStr.c_str(), colPlayer, entryY + 5, rowFont, rowFont, textColor);
         
         // Date
-        char dateStr[32];
-        std::tm* timeinfo = std::localtime(&entry.completedAt);
-        std::strftime(dateStr, sizeof(dateStr), "%m/%d/%y", timeinfo);
-        DrawTextBCL(dateStr, colDate, entryY + 5, std::max(10, rowFont - 1), rowFont, textColor);
+        const std::string dateStr = TimeHelper::FormatDate(entry.completedAt, "%d.%m.%y");
+        DrawTextBCL(dateStr.c_str(), colDate, entryY + 5, std::max(10, rowFont - 1), rowFont, textColor);
         
         entryY += rowHeight;
     }

@@ -71,16 +71,12 @@ void LeaderboardDetail::Draw() {
     textY += lineHeight * 1.5f;
     
     // Start and End Times (real-time)
-    char startTimeStr[64];
-    std::tm* startInfo = std::localtime(&entry->startedAt);
-    std::strftime(startTimeStr, sizeof(startTimeStr), "Started: %Y-%m-%d %H:%M:%S", startInfo);
-    DrawTextBCL(startTimeStr, textX, textY, 14, 14, LIGHTGRAY);
+    std::string startTimeStr = "Started: " + TimeHelper::FormatDateTime(entry->startedAt);
+    DrawTextBCL(startTimeStr.c_str(), textX, textY, 14, 14, LIGHTGRAY);
     textY += lineHeight;
     
-    char endTimeStr[64];
-    std::tm* endInfo = std::localtime(&entry->completedAt);
-    std::strftime(endTimeStr, sizeof(endTimeStr), "Finished: %Y-%m-%d %H:%M:%S", endInfo);
-    DrawTextBCL(endTimeStr, textX, textY, 14, 14, LIGHTGRAY);
+    std::string endTimeStr = "Finished: " + TimeHelper::FormatDateTime(entry->completedAt);
+    DrawTextBCL(endTimeStr.c_str(), textX, textY, 14, 14, LIGHTGRAY);
     textY += lineHeight * 1.5f;
     
     // Replay instructions and move count

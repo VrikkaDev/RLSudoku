@@ -15,20 +15,11 @@
 #include "GameData.h"
 #include "GameScene.h"
 #include "ReplayScene.h"
+#include "Helpers/StringHelper.h"
 #include "Helpers/UIHelper.h"
 #include "Storage/RemoteSyncManager.h"
 
 #include <algorithm>
-#include <cctype>
-
-namespace {
-std::string ToLowerCopy(std::string value) {
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
-    return value;
-}
-}
 
 LeaderboardScene::LeaderboardScene() : Scene() {
 }
@@ -225,14 +216,14 @@ void LeaderboardScene::RefreshEntries() {
 
     std::vector<std::string> nextPlayerFilters;
     nextPlayerFilters.emplace_back("All");
-    const std::string queryLower = ToLowerCopy(playerSearchQuery);
+    const std::string queryLower = StringHelper::ToLowerCopy(playerSearchQuery);
 
     for (const auto& entry : entries) {
         if (entry.playerName.empty()) {
             continue;
         }
         if (!queryLower.empty()) {
-            const std::string playerLower = ToLowerCopy(entry.playerName);
+            const std::string playerLower = StringHelper::ToLowerCopy(entry.playerName);
             if (playerLower.find(queryLower) == std::string::npos) {
                 continue;
             }
@@ -284,7 +275,7 @@ void LeaderboardScene::RefreshEntries() {
         }
 
         if (!queryLower.empty()) {
-            const std::string playerLower = ToLowerCopy(entry.playerName);
+            const std::string playerLower = StringHelper::ToLowerCopy(entry.playerName);
             if (playerLower.find(queryLower) == std::string::npos) {
                 includeEntry = false;
             }

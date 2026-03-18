@@ -1,11 +1,12 @@
 #include "RemoteSyncManager.h"
 #include "GameData.h"
+#include "Helpers/StringHelper.h"
 #include "Storage/LeaderboardManager.h"
 #include "Storage/StatisticsManager.h"
+#include "Storage/StorageManager.h"
 
 #include <iomanip>
 #include <sstream>
-#include <cctype>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -21,7 +22,7 @@
 
 namespace {
 
-constexpr const char* kClientVersion = "1.0.1";
+constexpr const char* kClientVersion = "1.0.2";
 constexpr int kHttpResolveTimeoutMs = 1500;
 constexpr int kHttpConnectTimeoutMs = 2000;
 constexpr int kHttpSendTimeoutMs = 2500;
@@ -44,13 +45,6 @@ RemoteSyncConfig GetDefaultConfig() {
     return cfg;
 }
 
-std::string ToLowerCopy(std::string value) {
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
-    return value;
-}
-
 std::string UrlEncodeComponent(const std::string& value) {
     std::ostringstream encoded;
     encoded << std::hex << std::uppercase;
@@ -65,6 +59,34 @@ std::string UrlEncodeComponent(const std::string& value) {
         }
     }
     return encoded.str();
+}
+
+std::string BuildActivityDetailsSummary(const nlohmann::json& details) {
+    if (!details.is_object() || details.empty()) {
+        return "";
+    }
+
+    std::ostringstream out;
+    bool first = true;
+    for (auto it = details.begin(); it != details.end(); ++it) {
+        if (!first) {
+            out << " | ";
+        }
+        first = false;
+
+        out << it.key() << ":";
+        if (it.value().is_string()) {
+            out << it.value().get<std::string>();
+        } else if (it.value().is_boolean()) {
+            out << (it.value().get<bool>() ? "true" : "false");
+        } else if (it.value().is_number()) {
+            out << it.value().dump();
+        } else {
+            out << it.value().dump();
+        }
+    }
+
+    return out.str();
 }
 
 #ifdef _WIN32
@@ -167,7 +189,12 @@ RemoteSyncManager::RemoteSyncManager() {
     curlAvailable = EnsureCurlInitialized();
 #endif
 
-    StartInitialPullAsync();
+    offlineModeEnabled = ReadOfflineModeToggle();
+    if (offlineModeEnabled) {
+        connectionState.store(ConnectionState::Disabled);
+    } else {
+        StartInitialPullAsync();
+    }
 }
 
 RemoteSyncManager::~RemoteSyncManager() {
@@ -276,6 +303,33 @@ void RemoteSyncManager::QueueStatisticsUpdate() {
 }
 
 void RemoteSyncManager::Update() {
+    const bool desiredOfflineMode = ReadOfflineModeToggle();
+    if (desiredOfflineMode != offlineModeEnabled) {
+        offlineModeEnabled = desiredOfflineMode;
+
+        if (offlineModeEnabled) {
+            JoinInitialPullThread();
+            JoinKeepAliveThread();
+            JoinSyncThread();
+            connectionState.store(ConnectionState::Disabled);
+            return;
+        }
+
+        warnedMissingCredentials = false;
+        authToken.clear();
+        initialPullPerformed = false;
+        keepAliveInFlight.store(false);
+        const auto now = std::chrono::steady_clock::now();
+        lastOutboundPacket = now;
+        lastReconnectAttempt = now - std::chrono::seconds(30);
+        StartInitialPullAsync();
+    }
+
+    if (offlineModeEnabled) {
+        connectionState.store(ConnectionState::Disabled);
+        return;
+    }
+
     if (keepAliveThread.joinable() && !keepAliveInFlight.load()) {
         keepAliveThread.join();
     }
@@ -326,6 +380,10 @@ void RemoteSyncManager::Update() {
 }
 
 void RemoteSyncManager::ForceSync() {
+    if (offlineModeEnabled) {
+        return;
+    }
+
     if (!HasDirtyData()) {
         return;
     }
@@ -345,6 +403,11 @@ void RemoteSyncManager::ForceSync() {
 }
 
 void RemoteSyncManager::StartSyncAsync() {
+    if (offlineModeEnabled) {
+        connectionState.store(ConnectionState::Disabled);
+        return;
+    }
+
     if (syncInFlight.load()) {
         return;
     }
@@ -389,6 +452,11 @@ void RemoteSyncManager::JoinSyncThread() {
 }
 
 void RemoteSyncManager::StartInitialPullAsync() {
+    if (offlineModeEnabled) {
+        connectionState.store(ConnectionState::Disabled);
+        return;
+    }
+
     if (config.username.empty()) {
         connectionState.store(ConnectionState::NotConfigured);
         return;
@@ -438,6 +506,11 @@ void RemoteSyncManager::JoinInitialPullThread() {
 }
 
 void RemoteSyncManager::StartKeepAliveAsync() {
+    if (offlineModeEnabled) {
+        connectionState.store(ConnectionState::Disabled);
+        return;
+    }
+
     if (keepAliveInFlight.load()) {
         return;
     }
@@ -492,6 +565,11 @@ void RemoteSyncManager::JoinKeepAliveThread() {
 }
 
 void RemoteSyncManager::PerformInitialPull() {
+    if (offlineModeEnabled) {
+        connectionState.store(ConnectionState::Disabled);
+        return;
+    }
+
     if (initialPullPerformed) {
         return;
     }
@@ -529,6 +607,8 @@ void RemoteSyncManager::PerformInitialPull() {
     FetchClientPolicyFromServer();
     PullGlobalLeaderboardFromServer();
     FetchMyStatsFromServer();
+    FetchActivityHistoryFromServer();
+    FetchDailyActivitySummaryFromServer();
 }
 
 void RemoteSyncManager::OnExit() {
@@ -591,6 +671,10 @@ std::string RemoteSyncManager::GetUpdateDownloadUrl() const {
 }
 
 std::string RemoteSyncManager::GetConnectionStatusText() const {
+    if (offlineModeEnabled) {
+        return "Sync: Disabled (Offline Mode)";
+    }
+
     switch (connectionState.load()) {
         case ConnectionState::Connecting:
             return "Sync: Connecting...";
@@ -607,6 +691,10 @@ std::string RemoteSyncManager::GetConnectionStatusText() const {
 }
 
 bool RemoteSyncManager::RefreshLeaderboardNow() {
+    if (offlineModeEnabled) {
+        return false;
+    }
+
     if (config.serverIp.empty() || config.username.empty()) {
         return false;
     }
@@ -619,6 +707,10 @@ bool RemoteSyncManager::RefreshLeaderboardNow() {
 }
 
 bool RemoteSyncManager::RefreshLeaderboardForPlayerNow(const std::string& username) {
+    if (offlineModeEnabled) {
+        return false;
+    }
+
     if (username.empty()) {
         return RefreshLeaderboardNow();
     }
@@ -633,11 +725,58 @@ bool RemoteSyncManager::RefreshLeaderboardForPlayerNow(const std::string& userna
     return PullGlobalLeaderboardFromServer(username);
 }
 
+bool RemoteSyncManager::RefreshActivityHistoryNow(int limit, bool mineOnly) {
+    if (offlineModeEnabled) {
+        return false;
+    }
+
+    if (config.serverIp.empty() || config.username.empty()) {
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(syncMutex);
+    if (!EnsureAuthToken()) {
+        return false;
+    }
+    return FetchActivityHistoryFromServer(limit, mineOnly);
+}
+
+std::vector<ActivityEvent> RemoteSyncManager::GetCachedActivityHistory() const {
+    std::lock_guard<std::mutex> lock(syncMutex);
+    return cachedActivityHistory;
+}
+
+bool RemoteSyncManager::RefreshDailyActivitySummaryNow(int days, bool mineOnly) {
+    if (offlineModeEnabled) {
+        return false;
+    }
+
+    if (config.serverIp.empty() || config.username.empty()) {
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(syncMutex);
+    if (!EnsureAuthToken()) {
+        return false;
+    }
+    return FetchDailyActivitySummaryFromServer(days, mineOnly);
+}
+
+std::vector<DailyActivitySummary> RemoteSyncManager::GetCachedDailyActivitySummary() const {
+    std::lock_guard<std::mutex> lock(syncMutex);
+    return cachedDailyActivitySummary;
+}
+
 bool RemoteSyncManager::HasDirtyData() const {
     return leaderboardDirty || statisticsDirty;
 }
 
 bool RemoteSyncManager::PerformSync() {
+    if (offlineModeEnabled) {
+        connectionState.store(ConnectionState::Disabled);
+        return false;
+    }
+
     lastSyncAttempt = std::chrono::steady_clock::now();
 
     if (config.serverIp.empty() || config.username.empty()) {
@@ -694,10 +833,20 @@ bool RemoteSyncManager::PerformSync() {
         }
     }
 
+    if (success) {
+        FetchActivityHistoryFromServer();
+        FetchDailyActivitySummaryFromServer();
+    }
+
     return success;
 }
 
 bool RemoteSyncManager::EnsureAuthToken() {
+    if (offlineModeEnabled) {
+        connectionState.store(ConnectionState::Disabled);
+        return false;
+    }
+
     HttpResponse meResponse;
 #ifdef _WIN32
     if (SendRequest(L"GET", BuildPath("api/auth/me"), "", meResponse) && meResponse.statusCode == 200) {
@@ -991,6 +1140,104 @@ bool RemoteSyncManager::FetchMyStatsFromServer() {
     }
 }
 
+bool RemoteSyncManager::FetchActivityHistoryFromServer(int limit, bool mineOnly) {
+    int clampedLimit = std::max(1, std::min(limit, 500));
+    HttpResponse response;
+    std::string query = "api/activity/recent?limit=" + std::to_string(clampedLimit);
+    if (mineOnly) {
+        query += "&mine_only=true";
+    }
+
+#ifdef _WIN32
+    bool sent = SendRequest(L"GET", BuildPath(query), "", response);
+#else
+    bool sent = SendCurlRequest("GET", BuildUrl(query), "", response);
+#endif
+
+    if (!sent || response.statusCode != 200) {
+        return false;
+    }
+
+    try {
+        auto data = nlohmann::json::parse(response.body);
+        if (!data.is_array()) {
+            return false;
+        }
+
+        std::vector<ActivityEvent> parsed;
+        parsed.reserve(data.size());
+
+        for (const auto& item : data) {
+            ActivityEvent event;
+            event.id = item.value("id", 0);
+            event.username = item.value("username", std::string(""));
+            event.eventType = item.value("event_type", std::string(""));
+            event.title = item.value("title", std::string(""));
+
+            if (item.contains("details") && item["details"].is_object()) {
+                event.detailsSummary = BuildActivityDetailsSummary(item["details"]);
+            }
+
+            event.createdAt = ParseIso8601(item.value("created_at", std::string("")));
+            parsed.push_back(std::move(event));
+        }
+
+        cachedActivityHistory = std::move(parsed);
+        return true;
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+
+bool RemoteSyncManager::FetchDailyActivitySummaryFromServer(int days, bool mineOnly) {
+    int clampedDays = std::max(1, std::min(days, 730));
+    HttpResponse response;
+    std::string query = "api/activity/daily-summary?days=" + std::to_string(clampedDays);
+    if (mineOnly) {
+        query += "&mine_only=true";
+    }
+
+#ifdef _WIN32
+    bool sent = SendRequest(L"GET", BuildPath(query), "", response);
+#else
+    bool sent = SendCurlRequest("GET", BuildUrl(query), "", response);
+#endif
+
+    if (!sent || response.statusCode != 200) {
+        return false;
+    }
+
+    try {
+        auto data = nlohmann::json::parse(response.body);
+        if (!data.is_array()) {
+            return false;
+        }
+
+        std::vector<DailyActivitySummary> parsed;
+        parsed.reserve(data.size());
+        for (const auto& item : data) {
+            DailyActivitySummary day;
+            day.date = item.value("date", std::string(""));
+            day.gamesStarted = item.value("games_started", item.value("games_completed", 0));
+            day.gamesCompleted = item.value("games_completed", 0);
+            day.totalCompletionSeconds = item.value("total_completion_seconds", 0.0);
+            day.appOpenSeconds = item.value("app_open_seconds", 0.0);
+            day.averageCompletionSeconds = item.value("average_completion_seconds", 0.0);
+            day.bestTimeSeconds = item.value("best_time_seconds", 0.0);
+            day.assistedRuns = item.value("assisted_runs", 0);
+            day.cleanRuns = item.value("clean_runs", 0);
+            if (!day.date.empty()) {
+                parsed.push_back(std::move(day));
+            }
+        }
+
+        cachedDailyActivitySummary = std::move(parsed);
+        return true;
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+
 std::string RemoteSyncManager::BuildRunId(const LeaderboardEntry& entry) const {
     std::ostringstream key;
     key << entry.playerName << '|'
@@ -1041,6 +1288,46 @@ std::time_t RemoteSyncManager::ParseIso8601(const std::string& value) {
 #endif
 }
 
+bool RemoteSyncManager::IsOfflineModeEnabled() const {
+    return offlineModeEnabled;
+}
+
+bool RemoteSyncManager::ReadOfflineModeToggle() const {
+    // Primary source: in-memory storage cache when available.
+    if (GameData::storageManager) {
+        nlohmann::json data = GameData::storageManager->GetData("options_toggle_offline_sync");
+        if (data.is_object() && data.contains("value") && data["value"].is_boolean()) {
+            return data["value"].get<bool>();
+        }
+        if (data.is_boolean()) {
+            return data.get<bool>();
+        }
+    }
+
+    // Fallback source: persisted game_data.json for early startup before scene saveables are loaded.
+    std::ifstream input("./game_data.json");
+    if (!input.good()) {
+        return false;
+    }
+
+    try {
+        const nlohmann::json root = nlohmann::json::parse(input, nullptr, true, true);
+        if (root.contains("options_toggle_offline_sync")) {
+            const auto& node = root["options_toggle_offline_sync"];
+            if (node.is_object() && node.contains("value") && node["value"].is_boolean()) {
+                return node["value"].get<bool>();
+            }
+            if (node.is_boolean()) {
+                return node.get<bool>();
+            }
+        }
+    } catch (const std::exception&) {
+        return false;
+    }
+
+    return false;
+}
+
 #ifdef _WIN32
 
 bool RemoteSyncManager::ParseRemoteUrl() {
@@ -1056,7 +1343,7 @@ bool RemoteSyncManager::ParseRemoteUrl() {
         return false;
     }
 
-    const std::string scheme = ToLowerCopy(remoteUrl.substr(0, schemePos));
+    const std::string scheme = StringHelper::ToLowerCopy(remoteUrl.substr(0, schemePos));
     useHttps = (scheme == "https");
     if (!(scheme == "https" || scheme == "http")) {
         return false;
@@ -1238,7 +1525,7 @@ bool RemoteSyncManager::ParseRemoteUrl() {
     apiBaseUrl.clear();
     const std::string remoteUrl = BuildRemoteUrl(config.serverIp, config.serverPort, config.useHttps);
 
-    const std::string lowered = ToLowerCopy(remoteUrl);
+    const std::string lowered = StringHelper::ToLowerCopy(remoteUrl);
     if (!(lowered.rfind("https://", 0) == 0 || lowered.rfind("http://", 0) == 0)) {
         return false;
     }

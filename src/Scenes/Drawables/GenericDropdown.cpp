@@ -6,6 +6,8 @@
 #include "Helpers/UIHelper.h"
 #include "Scenes/Scene.h"
 
+#include <algorithm>
+
 GenericDropdown::GenericDropdown() : Drawable(), Saveable("generic_dropdown"){
     width = 300;
     height = 50;
@@ -105,16 +107,21 @@ void GenericDropdown::Draw() {
 
     DrawRectangle(x, y, width, height, isHovering ? isPressed ? pressColor : hoverColor : color);
 
+    // Keep arrow size proportional to dropdown height for responsive scaling.
+    const float triangleScale = std::max(0.1f, static_cast<float>(height) / 50.0f);
+    const float effectiveTriangleSize = std::clamp(triangleSize * triangleScale, 6.0f, std::max(6.0f, static_cast<float>(height) * 0.35f));
+    const float arrowPadding = std::max(8.0f, static_cast<float>(height) * 0.20f);
+
     // Calculate the midpoint of the triangle within the rectangle
-    Vector2 triangleMidPoint = {static_cast<float>(x + width - triangleSize - 10),
+    Vector2 triangleMidPoint = {static_cast<float>(x + width - effectiveTriangleSize - arrowPadding),
                                 static_cast<float>(y + height - height/2)};
 
 
     // Draw the triangle upside down if opened
     if(isOpened){
-        DrawTriangle({triangleMidPoint.x, triangleMidPoint.y - triangleSize/2},
-                     {triangleMidPoint.x - triangleSize, triangleMidPoint.y + triangleSize},
-                     {triangleMidPoint.x + triangleSize, triangleMidPoint.y + triangleSize},
+        DrawTriangle({triangleMidPoint.x, triangleMidPoint.y - effectiveTriangleSize/2},
+                     {triangleMidPoint.x - effectiveTriangleSize, triangleMidPoint.y + effectiveTriangleSize},
+                     {triangleMidPoint.x + effectiveTriangleSize, triangleMidPoint.y + effectiveTriangleSize},
                      triangleColor);
 
         for(GenericButton* b : textButtons){
@@ -125,9 +132,9 @@ void GenericDropdown::Draw() {
         DrawRectangle(x, y+height, width, 2, triangleColor);
     }else{
         // The /2 is to make it be in same position. because of the flattened end of triangle
-        DrawTriangle({triangleMidPoint.x + triangleSize, triangleMidPoint.y - triangleSize/2},
-                     {triangleMidPoint.x - triangleSize, triangleMidPoint.y - triangleSize/2},
-                     {triangleMidPoint.x, triangleMidPoint.y + triangleSize},
+        DrawTriangle({triangleMidPoint.x + effectiveTriangleSize, triangleMidPoint.y - effectiveTriangleSize/2},
+                     {triangleMidPoint.x - effectiveTriangleSize, triangleMidPoint.y - effectiveTriangleSize/2},
+                     {triangleMidPoint.x, triangleMidPoint.y + effectiveTriangleSize},
                      triangleColor);
     }
 
