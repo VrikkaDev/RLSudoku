@@ -5,6 +5,8 @@
 #include "StatisticsManager.h"
 #include "Helpers/TimeHelper.h"
 
+#include <ctime>
+
 StatisticsManager::StatisticsManager() {
     Load();
 }
@@ -12,6 +14,7 @@ StatisticsManager::StatisticsManager() {
 void StatisticsManager::Load() {
     // Server-first: runtime stats are loaded via remote sync, local file is backup-only.
     stats = StatisticsData{};
+    dailyStats.clear();
 }
 
 nlohmann::json StatisticsManager::ExportJson() const {
@@ -43,6 +46,21 @@ nlohmann::json StatisticsManager::ExportJson() const {
         diffArray.push_back(d);
     }
     root["difficulties"] = diffArray;
+
+    nlohmann::json dailyRoot = nlohmann::json::object();
+    for (const auto& entry : dailyStats) {
+        nlohmann::json d;
+        d["gamesStarted"] = entry.second.gamesStarted;
+        d["gamesCompleted"] = entry.second.gamesCompleted;
+        d["gamePlaySeconds"] = entry.second.gamePlaySeconds;
+        d["appOpenSeconds"] = entry.second.appOpenSeconds;
+        d["totalCompletionSeconds"] = entry.second.totalCompletionSeconds;
+        d["bestTimeSeconds"] = entry.second.bestTimeSeconds;
+        d["assistedRuns"] = entry.second.assistedRuns;
+        d["cleanRuns"] = entry.second.cleanRuns;
+        dailyRoot[entry.first] = d;
+    }
+    root["dailyStats"] = dailyRoot;
 
     return root;
 }
@@ -79,6 +97,24 @@ bool StatisticsManager::ImportJson(const nlohmann::json& root) {
             }
         }
 
+        if (root.contains("dailyStats") && root["dailyStats"].is_object()) {
+            for (auto it = root["dailyStats"].begin(); it != root["dailyStats"].end(); ++it) {
+                if (!it.value().is_object()) {
+                    continue;
+                }
+                DailyStatistics day;
+                day.gamesStarted = it.value().value("gamesStarted", 0);
+                day.gamesCompleted = it.value().value("gamesCompleted", 0);
+                day.gamePlaySeconds = it.value().value("gamePlaySeconds", 0.0);
+                day.appOpenSeconds = it.value().value("appOpenSeconds", 0.0);
+                day.totalCompletionSeconds = it.value().value("totalCompletionSeconds", 0.0);
+                day.bestTimeSeconds = it.value().value("bestTimeSeconds", 0.0);
+                day.assistedRuns = it.value().value("assistedRuns", 0);
+                day.cleanRuns = it.value().value("cleanRuns", 0);
+                dailyStats[it.key()] = day;
+            }
+        }
+
         stats = std::move(imported);
         return true;
     } catch (const std::exception& e) {
@@ -105,6 +141,10 @@ void StatisticsManager::RecordGameStart(int difficulty) {
     stats.totalGamesStarted++;
     int index = DifficultyToIndex(difficulty);
     stats.difficulties[index].gamesStarted++;
+
+    DailyStatistics& day = dailyStats[CurrentDayKey()];
+    day.gamesStarted++;
+
     Save();
 }
 
@@ -144,6 +184,19 @@ void StatisticsManager::RecordGameCompleted(int difficulty, double completionTim
     if (usedAutoCheck) stats.runsWithAutoCheck++;
     if (usedConflictHighlight) stats.runsWithConflictHighlight++;
 
+    DailyStatistics& day = dailyStats[CurrentDayKey()];
+    day.gamesCompleted++;
+    day.gamePlaySeconds += clampedTime;
+    day.totalCompletionSeconds += clampedTime;
+    if (day.bestTimeSeconds <= 0.0 || (clampedTime > 0.0 && clampedTime < day.bestTimeSeconds)) {
+        day.bestTimeSeconds = clampedTime;
+    }
+    if (usedAnyAssist) {
+        day.assistedRuns++;
+    } else {
+        day.cleanRuns++;
+    }
+
     Save();
 }
 
@@ -153,7 +206,9 @@ void StatisticsManager::RecordGameAbandoned(double elapsedSeconds) {
     }
 
     // Play time should include both completed and discarded runs.
-    stats.totalTimeSeconds += std::max(0.0, elapsedSeconds);
+    const double clamped = std::max(0.0, elapsedSeconds);
+    stats.totalTimeSeconds += clamped;
+    dailyStats[CurrentDayKey()].gamePlaySeconds += clamped;
     Save();
 }
 
@@ -179,7 +234,9 @@ void StatisticsManager::RecordAppActiveTime(double deltaSeconds) {
     if (deltaSeconds <= 0.0) {
         return;
     }
-    stats.totalAppTimeSeconds += deltaSeconds;
+    const double clamped = std::max(0.0, deltaSeconds);
+    stats.totalAppTimeSeconds += clamped;
+    dailyStats[CurrentDayKey()].appOpenSeconds += clamped;
 }
 
 int StatisticsManager::DifficultyToIndex(int difficulty) const {
@@ -191,4 +248,9 @@ int StatisticsManager::DifficultyToIndex(int difficulty) const {
         return 2; // Hard
     }
     return 3; // Very Hard
+}
+
+std::string StatisticsManager::CurrentDayKey() const {
+    std::time_t now = std::time(nullptr);
+    return TimeHelper::FormatIsoDate(now);
 }

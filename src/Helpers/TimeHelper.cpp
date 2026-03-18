@@ -4,8 +4,22 @@
 
 #include "TimeHelper.h"
 
+#include <algorithm>
 #include <cmath>
 #include <iomanip>
+#include <sstream>
+
+namespace {
+std::tm ToLocalTime(std::time_t raw) {
+    std::tm localTm{};
+#ifdef _WIN32
+    localtime_s(&localTm, &raw);
+#else
+    localtime_r(&raw, &localTm);
+#endif
+    return localTm;
+}
+}
 #include <sstream>
 
 std::string TimeHelper::GetTimeFormatted(double time, bool showMilliseconds, bool forceHours) {
@@ -52,4 +66,37 @@ std::string TimeHelper::GetTimeFormatted(double time, bool showMilliseconds, boo
     }
 
     return oss.str();
+}
+
+std::string TimeHelper::FormatIsoDate(std::time_t raw) {
+    return FormatDate(raw, "%Y-%m-%d");
+}
+
+std::string TimeHelper::FormatDate(std::time_t raw, const std::string& format) {
+    if (raw <= 0) {
+        return "-";
+    }
+
+    const std::tm localTm = ToLocalTime(raw);
+    char buffer[64] = {};
+    std::strftime(buffer, sizeof(buffer), format.c_str(), &localTm);
+    return std::string(buffer);
+}
+
+std::string TimeHelper::FormatDateTime(std::time_t raw) {
+    return FormatDate(raw, "%d.%m.%Y %H:%M:%S");
+}
+
+std::string TimeHelper::FormatIsoDateToDayMonthYear(const std::string& isoDate) {
+    if (isoDate.size() < 10) {
+        return isoDate;
+    }
+    // Expected input: YYYY-MM-DD
+    return isoDate.substr(8, 2) + "." + isoDate.substr(5, 2) + "." + isoDate.substr(0, 4);
+}
+
+std::string TimeHelper::FormatHoursFromSeconds(double seconds, int precision) {
+    std::ostringstream out;
+    out << std::fixed << std::setprecision(std::max(0, precision)) << (std::max(0.0, seconds) / 3600.0);
+    return out.str();
 }

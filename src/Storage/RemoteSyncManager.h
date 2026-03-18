@@ -7,6 +7,27 @@
 
 struct LeaderboardEntry;
 
+struct ActivityEvent {
+    int id = 0;
+    std::string username;
+    std::string eventType;
+    std::string title;
+    std::string detailsSummary;
+    std::time_t createdAt = 0;
+};
+
+struct DailyActivitySummary {
+    std::string date;
+    int gamesStarted = 0;
+    int gamesCompleted = 0;
+    double totalCompletionSeconds = 0.0;
+    double appOpenSeconds = 0.0;
+    double averageCompletionSeconds = 0.0;
+    double bestTimeSeconds = 0.0;
+    int assistedRuns = 0;
+    int cleanRuns = 0;
+};
+
 struct RemoteSyncConfig {
     std::string serverIp;
     int serverPort = 8000;
@@ -44,6 +65,10 @@ public:
     void PerformInitialPull();
     bool RefreshLeaderboardNow();
     bool RefreshLeaderboardForPlayerNow(const std::string& username);
+    bool RefreshActivityHistoryNow(int limit = 80, bool mineOnly = false);
+    std::vector<ActivityEvent> GetCachedActivityHistory() const;
+    bool RefreshDailyActivitySummaryNow(int days = 365, bool mineOnly = true);
+    std::vector<DailyActivitySummary> GetCachedDailyActivitySummary() const;
     std::string GetClientVersion() const;
     bool IsVersionPolicyChecked() const;
     bool HasUpdateAvailable() const;
@@ -52,8 +77,10 @@ public:
     std::string GetUpdateDownloadUrl() const;
     std::string GetConnectionStatusText() const;
     ConnectionState GetConnectionState() const;
+    bool IsOfflineModeEnabled() const;
 
 private:
+    bool ReadOfflineModeToggle() const;
     void StartInitialPullAsync();
     void JoinInitialPullThread();
     void StartKeepAliveAsync();
@@ -68,6 +95,8 @@ private:
     bool PushLocalLeaderboardsToServer();
     bool PushMyStatsToServer();
     bool PullGlobalLeaderboardFromServer(const std::string& usernameFilter = std::string());
+    bool FetchActivityHistoryFromServer(int limit = 80, bool mineOnly = false);
+    bool FetchDailyActivitySummaryFromServer(int days = 365, bool mineOnly = true);
     bool FetchMyStatsFromServer();
     bool FetchClientPolicyFromServer();
     std::string BuildRunId(const LeaderboardEntry& entry) const;
@@ -113,7 +142,10 @@ private:
     std::string latestServerVersion;
     std::string minimumSupportedVersion;
     bool remoteUrlValid = false;
+    bool offlineModeEnabled = false;
     std::string authToken;
+    std::vector<ActivityEvent> cachedActivityHistory;
+    std::vector<DailyActivitySummary> cachedDailyActivitySummary;
     std::string requestedLeaderboardUsernameFilter;
     std::vector<LeaderboardEntry> pendingLeaderboardSubmissions;
 

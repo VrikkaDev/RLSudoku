@@ -21,6 +21,11 @@ private:
     class TextInputBox* playerNameInput = nullptr;
     class TextWidget* playerNameErrorText = nullptr;
     class GenericButton* playerNameConfirmButton = nullptr;
+    class TextWidget* usernameInfoText = nullptr;
+    class TextWidget* endpointInfoText = nullptr;
+    class TextWidget* offlineModeInfoText = nullptr;
+    class TextWidget* recordingInfoText = nullptr;
+    class TextWidget* cacheInfoText = nullptr;
     class TextWidget* syncStatusText = nullptr;
     class TextWidget* versionStatusText = nullptr;
     class GenericButton* updateButton = nullptr;

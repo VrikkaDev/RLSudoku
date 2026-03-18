@@ -7,6 +7,7 @@
 
 #include "pch.hxx"
 #include <array>
+#include <map>
 
 struct DifficultyStats {
     int gamesStarted = 0;
@@ -37,6 +38,17 @@ struct StatisticsData {
     std::array<DifficultyStats, 4> difficulties{}; // 0: Easy, 1: Medium, 2: Hard, 3: Very Hard
 };
 
+struct DailyStatistics {
+    int gamesStarted = 0;
+    int gamesCompleted = 0;
+    double gamePlaySeconds = 0.0;
+    double appOpenSeconds = 0.0;
+    double totalCompletionSeconds = 0.0;
+    double bestTimeSeconds = 0.0;
+    int assistedRuns = 0;
+    int cleanRuns = 0;
+};
+
 class StatisticsManager {
 public:
     StatisticsManager();
@@ -51,6 +63,7 @@ public:
     void RecordAppActiveTime(double deltaSeconds);
 
     const StatisticsData& GetStats() const { return stats; }
+    const std::map<std::string, DailyStatistics>& GetDailyStats() const { return dailyStats; }
     nlohmann::json ExportJson() const;
     bool ImportJson(const nlohmann::json& root);
 
@@ -59,8 +72,10 @@ public:
 
 private:
     int DifficultyToIndex(int difficulty) const;
+    std::string CurrentDayKey() const;
 
     StatisticsData stats{};
+    std::map<std::string, DailyStatistics> dailyStats{};
     std::string filename = "./stats.json";
 };
 

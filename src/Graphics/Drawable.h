@@ -9,25 +9,25 @@
 #include "pch.hxx"
 #include "Event/MouseEvent.h"
 
-class Drawable{
+class Drawable {
 public:
     Drawable();
-    //virtual ~Drawable() = default;
-    virtual void Draw(){
+    // virtual ~Drawable() = default;
+    virtual void Draw() {
     }
-    virtual void OnUpdate(){
+    virtual void OnUpdate() {
     }
-    virtual void OnStart(){
+    virtual void OnStart() {
     }
-    virtual bool IsHovering(Vector2 mousePos){
+    virtual bool IsHovering(Vector2 mousePos) {
         return enabled && CheckCollisionPointRec(mousePos, GetRectangle());
     }
     std::function<void(MouseEvent* event)> OnClick;
     std::function<void(Event* event)> OnEvent;
 
 
-    [[nodiscard]] Rectangle GetRectangle() const{
-        auto rec = Rectangle {};
+    [[nodiscard]] Rectangle GetRectangle() const {
+        auto rec = Rectangle{};
         rec.x = (float)x;
         rec.y = (float)y;
         rec.width = (float)width;
@@ -42,11 +42,9 @@ public:
     bool enabled = true;
 
 
-    // TODO children system.... maybe
+    // Reserved for future parent/child drawable composition.
     Drawable* parent{};
     std::vector<Drawable*> children{};
-
-
 };
 
 #endif //RLSUDOKU_DRAWABLE_H
